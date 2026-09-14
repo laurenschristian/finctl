@@ -6,6 +6,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 
+	"github.com/laurenschristian/finctl/internal/model"
 	"github.com/laurenschristian/finctl/internal/provider"
 )
 
@@ -96,7 +97,50 @@ func mcpServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in fxArg) (*mcp.CallToolResult, rawOut, error) {
 			return wrap(provider.FX(ctx, hx, orElse(in.From, "USD"), in.To))
 		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_rates", Description: "Treasury par yield curve and curve spreads (keyless)."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.TreasuryCurve(ctx, hx))
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_fedodds", Description: "Market-implied FOMC target-rate odds for the next meeting (Kalshi, keyless)."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.FedOdds(ctx, hx))
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_cot", Description: "CFTC Commitments of Traders net non-commercial positioning. market e.g. ES, NQ, GC, CL."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in cotArg) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.Cot(ctx, hx, orElse(in.Market, "ES")))
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_series", Description: "Last N observations of a FRED series (needs FINCTL_FRED_KEY). id e.g. DGS10, CPIAUCSL."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in seriesArg) (*mcp.CallToolResult, rawOut, error) {
+			key, _ := cfg.Key("fred")
+			n := in.N
+			if n == 0 {
+				n = 12
+			}
+			return wrap(provider.FredSeries(ctx, hx, key, in.ID, n))
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_fiscal", Description: "US debt to the penny (Treasury FiscalData, keyless)."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.TreasuryDebt(ctx, hx))
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_energy", Description: "Energy futures: WTI, Brent, natural gas, gasoline (Yahoo, keyless)."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, rawOut, error) {
+			out := map[string]*model.Quote{}
+			for name, sym := range map[string]string{"wti": "CL=F", "brent": "BZ=F", "natgas": "NG=F", "gasoline": "RB=F"} {
+				if q, err := provider.YahooQuote(ctx, hx, sym); err == nil {
+					out[name] = q
+				}
+			}
+			return wrap(out, nil)
+		})
 	return s
+}
+
+type cotArg struct {
+	Market string `json:"market,omitempty"`
+}
+type seriesArg struct {
+	ID string `json:"id"`
+	N  int    `json:"n,omitempty"`
 }
 
 func orElse(v, d string) string {

@@ -65,6 +65,18 @@ func fixtures(t *testing.T) {
 	mux.HandleFunc("/api/xbrl/companyfacts/", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"facts":{"us-gaap":{"Revenues":{"units":{"USD":[{"start":"2025-04-01","end":"2025-06-30","val":30000,"fy":2025,"fp":"Q2","form":"10-Q","filed":"2025-07-30"}]}},"CommonStockSharesOutstanding":{"units":{"shares":[{"end":"2025-06-30","val":2400,"fy":2025,"fp":"Q2","form":"10-Q","filed":"2025-07-30"}]}}}}}`))
 	})
+	mux.HandleFunc("/resource-center/data-chart-center/interest-rates/pages/xml", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`<?xml version="1.0"?><feed><entry><content><properties><NEW_DATE>2026-09-14T00:00:00</NEW_DATE><BC_3MONTH>4.11</BC_3MONTH><BC_2YEAR>4.65</BC_2YEAR><BC_10YEAR>4.97</BC_10YEAR><BC_30YEAR>5.34</BC_30YEAR></properties></content></entry></feed>`))
+	})
+	mux.HandleFunc("/services/api/fiscal_service/v2/accounting/od/debt_to_penny", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[{"record_date":"2026-09-11","debt_held_public_amt":"32357573654300.31","intragov_hold_amt":"7688604668492.47","tot_pub_debt_out_amt":"40046178322792.78"}]}`))
+	})
+	mux.HandleFunc("/cftc.json", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"contract_market_name":"E-MINI S&P 500 STOCK INDEX","report_date_as_yyyy_mm_dd":"2026-09-08T00:00:00.000","noncomm_positions_long_all":"268972","noncomm_positions_short_all":"332505"},{"contract_market_name":"E-MINI S&P 500 STOCK INDEX","report_date_as_yyyy_mm_dd":"2026-09-01T00:00:00.000","noncomm_positions_long_all":"260000","noncomm_positions_short_all":"324651"}]`))
+	})
+	mux.HandleFunc("/markets", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"markets":[{"ticker":"KXFED-26SEP-T3.75","event_ticker":"KXFED-26SEP","yes_sub_title":"Above 3.75%","close_time":"2026-09-16T18:00:00Z","floor_strike":3.75,"yes_bid_dollars":"0.85","yes_ask_dollars":"0.87","last_price_dollars":"0.86"},{"ticker":"KXFED-26SEP-T4.00","event_ticker":"KXFED-26SEP","yes_sub_title":"Above 4.00%","close_time":"2026-09-16T18:00:00Z","floor_strike":4.0,"yes_bid_dollars":"0.01","yes_ask_dollars":"0.02","last_price_dollars":"0.01"}]}`))
+	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	provider.SetBases(srv.URL)
@@ -84,6 +96,13 @@ func TestCommands(t *testing.T) {
 		{[]string{"fx", "EUR"}, "USD/EUR"},
 		{[]string{"fund", "NVDA"}, "PERIOD"},
 		{[]string{"capex", "--tickers", "NVDA"}, "COMPANY"},
+		{[]string{"rates"}, "TENOR"},
+		{[]string{"curve"}, "10Y"},
+		{[]string{"fiscal"}, "total debt"},
+		{[]string{"cot", "--market", "ES"}, "net"},
+		{[]string{"fedodds"}, "TARGET BAND"},
+		{[]string{"energy"}, "PRODUCT"},
+		{[]string{"macro", "brief"}, "RATES"},
 	}
 	for _, c := range cases {
 		out, err := run(t, c.args...)
@@ -133,7 +152,7 @@ func TestMCPTools(t *testing.T) {
 	}
 	defer func() { _ = sess.Close() }()
 	tools, err := sess.ListTools(context.Background(), nil)
-	if err != nil || len(tools.Tools) != 6 {
+	if err != nil || len(tools.Tools) != 12 {
 		t.Fatalf("tools=%d %v", len(tools.Tools), err)
 	}
 }
