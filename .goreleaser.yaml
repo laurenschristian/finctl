@@ -50,3 +50,9 @@ homebrew_casks:
       bash: "completions/finctl.bash"
       zsh: "completions/_finctl"
       fish: "completions/finctl.fish"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/finctl"]
+          end
