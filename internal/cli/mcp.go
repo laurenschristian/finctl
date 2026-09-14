@@ -189,6 +189,10 @@ func mcpServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in refArg) (*mcp.CallToolResult, rawOut, error) {
 			return wrap(provider.VoiceRead(ctx, hx, in.Ref))
 		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_daily", Description: "Morning brief as {section: data|error}: book, buy-zones, macro, Fed odds, insider clusters. Per-section error isolation."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(dailyBrief(ctx), nil)
+		})
 	return s
 }
 

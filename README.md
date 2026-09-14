@@ -41,6 +41,8 @@ finctl watchlist                 # vault watchlist with live price and distance 
 finctl voices                    # curated market voices from X (followers, bio; fxtwitter)
 finctl voice read <url>          # hydrate a single tweet to text
 
+finctl daily                     # morning brief: book, buy-zones, macro, Fed odds, insiders
+
 finctl cache clear               # drop the on-disk cache
 finctl doctor                    # config, cache, provider reachability
 finctl mcp                       # MCP server over stdio
@@ -81,7 +83,7 @@ Provider keys are optional and off the keyless path; set them later with `FINCTL
 claude mcp add fin -- finctl mcp
 ```
 
-Twenty-three tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `fin_fx`, `fin_rates`, `fin_fedodds`, `fin_cot`, `fin_series`, `fin_fiscal`, `fin_energy`, `fin_tw_revenue`, `fin_gpu_rent`, `fin_short`, `fin_options`, `fin_filings`, `fin_insider`, `fin_dilution`, `fin_port`, `fin_watchlist`, `fin_voices`, `fin_voice_read`. Any stdio MCP client (Cursor, Claude Desktop, Zed) works the same: command `finctl`, args `["mcp"]`.
+Twenty-four tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `fin_fx`, `fin_rates`, `fin_fedodds`, `fin_cot`, `fin_series`, `fin_fiscal`, `fin_energy`, `fin_tw_revenue`, `fin_gpu_rent`, `fin_short`, `fin_options`, `fin_filings`, `fin_insider`, `fin_dilution`, `fin_port`, `fin_watchlist`, `fin_voices`, `fin_voice_read`, `fin_daily`. Any stdio MCP client (Cursor, Claude Desktop, Zed) works the same: command `finctl`, args `["mcp"]`.
 
 ## Data sources
 

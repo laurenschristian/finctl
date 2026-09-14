@@ -1,6 +1,8 @@
 # finctl PRD 07: Ops, the daily brief, and MCP
 
-Status: draft, 2026-09-14. Depends on all prior PRDs; `daily` and full `mcp` are the v1.0.0 capstone. This is where the pieces become one habit.
+Status: SHIPPED v1.0.0 (2026-09-14), the capstone. Delivered: daily (six sections with per-section error isolation: Book, Buy-zones in range, Earnings this week, Macro today, Fed odds, Insider clusters; --json returns {section: data|error}; keyless sections populate while gateway/key sections degrade to one-line reasons), doctor upgraded (cache size + IBKR gateway reachability, no secrets printed), fin_daily MCP tool. 24 MCP tools total. Earnings section is a placeholder (needs FINCTL_FINNHUB_KEY). Follow-up (not code): rewrite the /invest skill to a short runbook calling `finctl daily --json` + `finctl research/lens`.
+
+Original draft: Depends on all prior PRDs; `daily` and full `mcp` are the v1.0.0 capstone. This is where the pieces become one habit.
 
 ## Purpose
 
