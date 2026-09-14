@@ -1,6 +1,6 @@
 # finctl PRD 03: Macro commands
 
-Status: draft, 2026-09-14. Depends on PRD 00, PRD 01. Providers: fred, bls, eia, fed h15, treasury, fiscaldata, kalshi, polymarket, cftc, michigan, gdpnow.
+Status: SHIPPED v0.3.0 (2026-09-14), keyless-first subset. Delivered: rates, curve, fedodds, cot, series (FRED key), fiscal, energy (Yahoo futures), macro brief. Deferred: calendar (needs a verified release-schedule source), sentiment (VIX term), full EIA energy + FRED-backed rates/prints. Providers: treasury (par-curve XML + FiscalData), cftc (Socrata legacy combined jun7-fc8e), kalshi (KXFED ladder -> per-band odds), fred (series). All keyless except series (FRED free key). 6 MCP tools added (fin_rates/fedodds/cot/series/fiscal/energy). Depends on PRD 00, PRD 01. Providers: fred, bls, eia, fed h15, treasury, fiscaldata, kalshi, polymarket, cftc, michigan, gdpnow.
 
 ## Purpose
 
