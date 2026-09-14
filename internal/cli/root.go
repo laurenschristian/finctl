@@ -11,6 +11,7 @@ import (
 	"github.com/laurenschristian/finctl/internal/cache"
 	"github.com/laurenschristian/finctl/internal/config"
 	"github.com/laurenschristian/finctl/internal/httpx"
+	"github.com/laurenschristian/finctl/internal/ibkr"
 )
 
 var (
@@ -90,6 +91,7 @@ func Root() *cobra.Command {
 		watchlistCmd(),
 		voicesCmd(),
 		voiceCmd(),
+		dailyCmd(),
 		cacheCmd(),
 		keysCmd(),
 		doctorCmd(),
@@ -116,12 +118,24 @@ func show(v any, render func() string) error {
 func doctorCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
-		Short: "Check config, cache, and configured keys",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		Short: "Check config, cache size, keys, and IBKR gateway reachability",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cacheSize := "0"
+			if fi, err := os.Stat(cfg.CacheFile()); err == nil {
+				cacheSize = abbr(float64(fi.Size())) + "B"
+			}
+			gateway := "not authenticated"
+			if ok, err := ibkr.New(cfg.IBKRURL).Authenticated(cmd.Context()); err != nil {
+				gateway = "unreachable"
+			} else if ok {
+				gateway = "authenticated"
+			}
 			state := map[string]any{
 				"config":     config.Path(),
 				"cache":      cfg.CacheFile(),
+				"cacheSize":  cacheSize,
 				"ibkr_url":   cfg.IBKRURL,
+				"gateway":    gateway,
 				"user_agent": cfg.UA(),
 				"keys":       cfg.Configured(),
 			}
@@ -129,8 +143,8 @@ func doctorCmd() *cobra.Command {
 				return emit(state)
 			}
 			fmt.Printf("config      %s\n", config.Path())
-			fmt.Printf("cache       %s\n", cfg.CacheFile())
-			fmt.Printf("ibkr_url    %s\n", cfg.IBKRURL)
+			fmt.Printf("cache       %s (%s)\n", cfg.CacheFile(), cacheSize)
+			fmt.Printf("ibkr_url    %s (%s)\n", cfg.IBKRURL, gateway)
 			fmt.Printf("user_agent  %s\n", cfg.UA())
 			fmt.Printf("keys        %v\n", cfg.Configured())
 			return nil

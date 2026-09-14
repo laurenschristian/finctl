@@ -153,6 +153,7 @@ func TestCommands(t *testing.T) {
 		{[]string{"watchlist"}, "BUY ZONE"},
 		{[]string{"voices", "dylan522p"}, "HANDLE"},
 		{[]string{"voice", "read", "https://x.com/jack/status/20"}, "@jack"},
+		{[]string{"daily"}, "== Book =="},
 	}
 	for _, c := range cases {
 		out, err := run(t, c.args...)
@@ -202,7 +203,7 @@ func TestMCPTools(t *testing.T) {
 	}
 	defer func() { _ = sess.Close() }()
 	tools, err := sess.ListTools(context.Background(), nil)
-	if err != nil || len(tools.Tools) != 23 {
+	if err != nil || len(tools.Tools) != 24 {
 		t.Fatalf("tools=%d %v", len(tools.Tools), err)
 	}
 }
