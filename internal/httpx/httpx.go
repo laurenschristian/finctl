@@ -40,6 +40,8 @@ var providerRate = map[string]rate.Limit{
 	"treasury": 4,
 	"kalshi":   4,
 	"eia":      4,
+	"twse":     4,
+	"vastai":   4,
 }
 
 const defaultRate rate.Limit = 5

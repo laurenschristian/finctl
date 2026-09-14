@@ -70,6 +70,12 @@ func register(mux *http.ServeMux) {
 	mux.HandleFunc("/series/observations", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"observations":[{"date":"2026-09-01","value":"4.10"},{"date":"2026-08-01","value":"."},{"date":"2026-07-01","value":"4.05"}]}`))
 	})
+	mux.HandleFunc("/opendata/t187ap05_L", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"公司代號":"2330","公司名稱":"台積電","資料年月":"11508","營業收入-當月營收":"514805337","營業收入-上月比較增減(%)":"10.10","營業收入-去年同月增減(%)":"53.32"},{"公司代號":"9999","公司名稱":"other","資料年月":"11508","營業收入-當月營收":"1000","營業收入-上月比較增減(%)":"0","營業收入-去年同月增減(%)":"0"}]`))
+	})
+	mux.HandleFunc("/bundles/", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"offers":[{"dph_total":4.0,"num_gpus":2},{"dph_total":1.9,"num_gpus":1},{"dph_total":6.0,"num_gpus":2}]}`))
+	})
 }
 
 // companyFactsFixture: Q2 discrete revenue (30000), a de-cumulable capex YTD
@@ -183,6 +189,21 @@ func TestProviders(t *testing.T) {
 	}
 	if _, err := FredSeries(ctx, h, "", "DGS10", 12); err == nil {
 		t.Fatal("want FRED missing-key error")
+	}
+	tw, err := TWRevenue(ctx, h, []string{"2330"})
+	if err != nil || len(tw) != 1 || tw[0].Name != "台積電" {
+		t.Fatalf("twse %v %+v", err, tw)
+	}
+	if tw[0].Revenue != 514805337000 || tw[0].Month != "2026-08" || tw[0].YoY != 53.32 {
+		t.Fatalf("twse fields %+v", tw[0])
+	}
+	gr, err := GPURent(ctx, h, "H100 SXM")
+	if err != nil || gr.LowAsk != 1.9 || gr.Offers != 3 {
+		t.Fatalf("gpu %v %+v", err, gr)
+	}
+	// per-gpu asks: 4/2=2.0, 1.9, 6/2=3.0 -> sorted [1.9,2.0,3.0], median 2.0.
+	if gr.Median != 2.0 {
+		t.Fatalf("gpu median %+v", gr)
 	}
 }
 

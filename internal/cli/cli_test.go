@@ -77,6 +77,12 @@ func fixtures(t *testing.T) {
 	mux.HandleFunc("/markets", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"markets":[{"ticker":"KXFED-26SEP-T3.75","event_ticker":"KXFED-26SEP","yes_sub_title":"Above 3.75%","close_time":"2026-09-16T18:00:00Z","floor_strike":3.75,"yes_bid_dollars":"0.85","yes_ask_dollars":"0.87","last_price_dollars":"0.86"},{"ticker":"KXFED-26SEP-T4.00","event_ticker":"KXFED-26SEP","yes_sub_title":"Above 4.00%","close_time":"2026-09-16T18:00:00Z","floor_strike":4.0,"yes_bid_dollars":"0.01","yes_ask_dollars":"0.02","last_price_dollars":"0.01"}]}`))
 	})
+	mux.HandleFunc("/opendata/t187ap05_L", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"公司代號":"2330","公司名稱":"台積電","資料年月":"11508","營業收入-當月營收":"514805337","營業收入-上月比較增減(%)":"10.10","營業收入-去年同月增減(%)":"53.32"}]`))
+	})
+	mux.HandleFunc("/bundles/", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"offers":[{"dph_total":4.0,"num_gpus":2},{"dph_total":1.9,"num_gpus":1}]}`))
+	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	provider.SetBases(srv.URL)
@@ -103,6 +109,8 @@ func TestCommands(t *testing.T) {
 		{[]string{"fedodds"}, "TARGET BAND"},
 		{[]string{"energy"}, "PRODUCT"},
 		{[]string{"macro", "brief"}, "RATES"},
+		{[]string{"tw-revenue", "2330"}, "台積電"},
+		{[]string{"gpu-rent", "H100 SXM"}, "LOW"},
 	}
 	for _, c := range cases {
 		out, err := run(t, c.args...)
@@ -152,7 +160,7 @@ func TestMCPTools(t *testing.T) {
 	}
 	defer func() { _ = sess.Close() }()
 	tools, err := sess.ListTools(context.Background(), nil)
-	if err != nil || len(tools.Tools) != 12 {
+	if err != nil || len(tools.Tools) != 14 {
 		t.Fatalf("tools=%d %v", len(tools.Tools), err)
 	}
 }

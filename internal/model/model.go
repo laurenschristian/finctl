@@ -132,3 +132,22 @@ type DebtSummary struct {
 	HeldPublic float64 `json:"heldPublic"`
 	Intragov   float64 `json:"intragov"`
 }
+
+// MonthlyRevenue is one company-month from the TWSE monthly revenue feed (TWD).
+type MonthlyRevenue struct {
+	CompanyID string  `json:"companyId"`
+	Name      string  `json:"name"`
+	Month     string  `json:"month"`
+	Revenue   float64 `json:"revenueTWD"`
+	MoM       float64 `json:"mom,omitempty"`
+	YoY       float64 `json:"yoy,omitempty"`
+}
+
+// GPURent is the lowest ask and median $/GPU-hour for a GPU type on vast.ai.
+type GPURent struct {
+	GPU    string  `json:"gpu"`
+	LowAsk float64 `json:"lowAsk"`
+	Median float64 `json:"median"`
+	Offers int     `json:"offers"`
+	AsOf   string  `json:"asOf"`
+}
