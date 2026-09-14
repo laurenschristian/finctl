@@ -10,4 +10,9 @@ func SetBases(base string) {
 	cboeBase = base
 	edgarData = base
 	edgarWWW = base
+	treasuryBase = base
+	fiscalDataBase = base
+	cftcBase = base + "/cftc.json"
+	kalshiBase = base
+	fredBase = base
 }

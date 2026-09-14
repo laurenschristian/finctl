@@ -78,3 +78,57 @@ type FXRate struct {
 	Rate float64 `json:"rate"`
 	Date string  `json:"date,omitempty"`
 }
+
+// RatePoint is one tenor on the Treasury/yield curve, or a policy rate.
+type RatePoint struct {
+	Tenor string  `json:"tenor"`
+	Yield float64 `json:"yield"`
+	AsOf  string  `json:"asOf,omitempty"`
+}
+
+// Obs is one observation of a time series.
+type Obs struct {
+	Date  string  `json:"date"`
+	Value float64 `json:"value"`
+}
+
+// Series is a named data series (e.g. a FRED series).
+type Series struct {
+	ID     string `json:"id"`
+	Title  string `json:"title,omitempty"`
+	Units  string `json:"units,omitempty"`
+	Points []Obs  `json:"points"`
+}
+
+// FedBucket is the market-implied probability the target lands in a rate band.
+type FedBucket struct {
+	Band string  `json:"band"`
+	Prob float64 `json:"prob"`
+}
+
+// FedOdds is the implied outcome distribution for one FOMC meeting.
+type FedOdds struct {
+	Meeting string      `json:"meeting"`
+	Source  string      `json:"source"`
+	AsOf    string      `json:"asOf,omitempty"`
+	Buckets []FedBucket `json:"buckets"`
+}
+
+// CotReport is CFTC Commitments of Traders positioning for one market.
+type CotReport struct {
+	Market   string  `json:"market"`
+	Date     string  `json:"date"`
+	Long     float64 `json:"long"`
+	Short    float64 `json:"short"`
+	Net      float64 `json:"net"`
+	NetPrior float64 `json:"netPrior,omitempty"`
+	AsOf     string  `json:"asOf,omitempty"`
+}
+
+// DebtSummary is the Treasury debt-to-the-penny snapshot.
+type DebtSummary struct {
+	Date       string  `json:"date"`
+	TotalDebt  float64 `json:"totalDebt"`
+	HeldPublic float64 `json:"heldPublic"`
+	Intragov   float64 `json:"intragov"`
+}

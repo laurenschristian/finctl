@@ -44,6 +44,32 @@ func register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/xbrl/companyfacts/", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(companyFactsFixture))
 	})
+	// Treasury par yield curve (Atom XML).
+	mux.HandleFunc("/resource-center/data-chart-center/interest-rates/pages/xml", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`<?xml version="1.0"?><feed><entry><content><properties>` +
+			`<NEW_DATE>2026-09-14T00:00:00</NEW_DATE><BC_3MONTH>4.11</BC_3MONTH><BC_2YEAR>4.65</BC_2YEAR>` +
+			`<BC_10YEAR>4.97</BC_10YEAR><BC_30YEAR>5.34</BC_30YEAR></properties></content></entry></feed>`))
+	})
+	mux.HandleFunc("/services/api/fiscal_service/v2/accounting/od/debt_to_penny", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[{"record_date":"2026-09-11","debt_held_public_amt":"32357573654300.31","intragov_hold_amt":"7688604668492.47","tot_pub_debt_out_amt":"40046178322792.78"}]}`))
+	})
+	// CFTC COT: two weekly rows for the main contract plus a MICRO decoy.
+	mux.HandleFunc("/cftc.json", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[` +
+			`{"contract_market_name":"E-MINI S&P 500 STOCK INDEX","report_date_as_yyyy_mm_dd":"2026-09-08T00:00:00.000","noncomm_positions_long_all":"268972","noncomm_positions_short_all":"332505"},` +
+			`{"contract_market_name":"E-MINI S&P 500 STOCK INDEX","report_date_as_yyyy_mm_dd":"2026-09-01T00:00:00.000","noncomm_positions_long_all":"260000","noncomm_positions_short_all":"324651"},` +
+			`{"contract_market_name":"MICRO E-MINI S&P 500 INDEX","report_date_as_yyyy_mm_dd":"2026-09-08T00:00:00.000","noncomm_positions_long_all":"5","noncomm_positions_short_all":"5"}]`))
+	})
+	// Kalshi KXFED ladder (nearest meeting), _dollars string fields.
+	mux.HandleFunc("/markets", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"markets":[` +
+			`{"ticker":"KXFED-26SEP-T3.50","event_ticker":"KXFED-26SEP","yes_sub_title":"Above 3.50%","close_time":"2026-09-16T18:00:00Z","floor_strike":3.5,"yes_bid_dollars":"0.98","yes_ask_dollars":"0.99","last_price_dollars":"0.99"},` +
+			`{"ticker":"KXFED-26SEP-T3.75","event_ticker":"KXFED-26SEP","yes_sub_title":"Above 3.75%","close_time":"2026-09-16T18:00:00Z","floor_strike":3.75,"yes_bid_dollars":"0.85","yes_ask_dollars":"0.87","last_price_dollars":"0.86"},` +
+			`{"ticker":"KXFED-26SEP-T4.00","event_ticker":"KXFED-26SEP","yes_sub_title":"Above 4.00%","close_time":"2026-09-16T18:00:00Z","floor_strike":4.0,"yes_bid_dollars":"0.01","yes_ask_dollars":"0.02","last_price_dollars":"0.01"}]}`))
+	})
+	mux.HandleFunc("/series/observations", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"observations":[{"date":"2026-09-01","value":"4.10"},{"date":"2026-08-01","value":"."},{"date":"2026-07-01","value":"4.05"}]}`))
+	})
 }
 
 // companyFactsFixture: Q2 discrete revenue (30000), a de-cumulable capex YTD
@@ -127,6 +153,36 @@ func TestProviders(t *testing.T) {
 	}
 	if _, err := CIKFor(ctx, h, "ZZZZ"); err == nil {
 		t.Fatal("want unknown ticker error")
+	}
+	curve, err := TreasuryCurve(ctx, h)
+	if err != nil || len(curve) != 4 || curve[0].Tenor != "3M" || curve[0].Yield != 4.11 {
+		t.Fatalf("curve %v %+v", err, curve)
+	}
+	debt, err := TreasuryDebt(ctx, h)
+	if err != nil || debt.Date != "2026-09-11" || debt.TotalDebt == 0 {
+		t.Fatalf("debt %v %+v", err, debt)
+	}
+	cot, err := Cot(ctx, h, "ES")
+	if err != nil || cot.Market != "E-MINI S&P 500 STOCK INDEX" || cot.Net != 268972-332505 {
+		t.Fatalf("cot %v %+v", err, cot)
+	}
+	if cot.NetPrior != 260000-324651 {
+		t.Fatalf("cot prior %+v", cot)
+	}
+	odds, err := FedOdds(ctx, h)
+	if err != nil || odds.Meeting != "KXFED-26SEP" || len(odds.Buckets) == 0 {
+		t.Fatalf("fedodds %v %+v", err, odds)
+	}
+	// Top bucket by prob should be 3.75-4.00% at ~0.85 (mid 3.75 rung - mid 4.00 rung).
+	if odds.Buckets[0].Band != "3.75-4.00%" || odds.Buckets[0].Prob < 0.8 {
+		t.Fatalf("fedodds bucket %+v", odds.Buckets)
+	}
+	s, err := FredSeries(ctx, h, "testkey", "DGS10", 12)
+	if err != nil || len(s.Points) != 2 { // the "." observation is dropped
+		t.Fatalf("fred %v %+v", err, s)
+	}
+	if _, err := FredSeries(ctx, h, "", "DGS10", 12); err == nil {
+		t.Fatal("want FRED missing-key error")
 	}
 }
 

@@ -14,6 +14,16 @@ finctl fund MSFT                 # revenue, capex, shares by fiscal period (SEC 
 finctl capex --quarters 4        # hyperscaler capex, YoY (MSFT/GOOGL/AMZN/META/ORCL)
 finctl crypto bitcoin ethereum   # crypto spot (CoinGecko; args are coin ids)
 finctl fx USD                    # spot FX from a base (ECB via Frankfurter)
+
+finctl macro brief               # rates, Fed odds, and risk on one screen
+finctl rates                     # 3m/2y/10y/30y + 2s10s, 3m10y (Treasury, keyless)
+finctl curve                     # full Treasury par yield curve
+finctl fedodds                   # market-implied FOMC target-rate odds (Kalshi)
+finctl cot --market ES           # CFTC net non-commercial positioning
+finctl energy                    # WTI, Brent, natural gas, gasoline (Yahoo)
+finctl fiscal                    # US debt to the penny (Treasury FiscalData)
+finctl series DGS10 --n 6        # any FRED series (needs FINCTL_FRED_KEY)
+
 finctl cache clear               # drop the on-disk cache
 finctl doctor                    # config, cache, provider reachability
 finctl mcp                       # MCP server over stdio
@@ -46,7 +56,7 @@ Or put `user_agent: finctl/0.1 (you@example.com)` in the config file. The keyles
 
 Precedence is flags, then environment (`FINCTL_USER_AGENT`, `FINCTL_CACHE_DIR`, `FINCTL_CONFIG`), then the config file
 (`~/Library/Application Support/finctl/config.yaml` on macOS, `~/.config/finctl/config.yaml` on Linux).
-Provider keys are optional and off the v0.1 path; set them later with `FINCTL_<PROVIDER>_KEY` or a `*_key_cmd` that prints the secret from a keychain, `op read`, `pass` or sops.
+Provider keys are optional and off the keyless path; set them later with `FINCTL_<PROVIDER>_KEY` or a `*_key_cmd` that prints the secret from a keychain, `op read`, `pass` or sops.
 
 ## MCP
 
@@ -54,14 +64,19 @@ Provider keys are optional and off the v0.1 path; set them later with `FINCTL_<P
 claude mcp add fin -- finctl mcp
 ```
 
-Six tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `fin_fx`. Any stdio MCP client (Cursor, Claude Desktop, Zed) works the same: command `finctl`, args `["mcp"]`.
+Twelve tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `fin_fx`, `fin_rates`, `fin_fedodds`, `fin_cot`, `fin_series`, `fin_fiscal`, `fin_energy`. Any stdio MCP client (Cursor, Claude Desktop, Zed) works the same: command `finctl`, args `["mcp"]`.
 
-## Data sources (v0.1, keyless)
+## Data sources
 
 - Quotes and charts: Cboe delayed, Yahoo fallback
 - Fundamentals and capex: SEC EDGAR XBRL (needs a contact User-Agent)
 - Crypto: CoinGecko
 - FX: Frankfurter (ECB reference rates)
+- Rates and curve: US Treasury par yield curve XML
+- Fed odds: Kalshi KXFED prediction markets
+- Positioning: CFTC Commitments of Traders (Socrata)
+- Fiscal: Treasury FiscalData (debt to the penny)
+- Macro series: FRED (free key via `FINCTL_FRED_KEY`)
 
 Responses are cached on disk (pure-Go SQLite) with per-provider TTLs and rate limits. See [docs/data-sources.md](docs/data-sources.md) for the full catalog and [PLAN.md](PLAN.md) for the roadmap (macro, filings, portfolio, research).
 
