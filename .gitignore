@@ -1,3 +1,7 @@
-/finctl
-/dist/
 *.db
+/completions/
+/coverage.out
+/dist/
+/docs/cli/
+/finctl
+/man/
