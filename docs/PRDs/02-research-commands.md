@@ -49,3 +49,9 @@ Tables by default (reuse ibkrctl's tabwriter + number/money/sparkline helpers). 
 2. `finctl research NVDA` returns every section or a per-section error string (never a total failure because one provider is down), like ibkrctl `review`.
 3. `finctl short NVDA` matches the latest FINRA settlement date.
 4. Each provider has one Go test against a saved fixture (no network in tests).
+
+## Known limitation (v0.1) and the v0.2 fix
+
+`fund` v0.1 uses SEC "frames" (facts SEC tags with a calendar-quarter `CYyyyyQn`). Companies whose fiscal year aligns to calendar quarters (MSFT, GOOGL, META) render a clean revenue/capex/shares trend. Companies with off-calendar fiscal years (NVDA Jan, AAPL Sep) rarely get frame tags, so `fund` shows few or no rows for them (honest, never stale). `capex` is unaffected for the hyperscalers because they report on calendar-ish quarters.
+
+v0.2 first task: reimplement `Fundamentals` on `companyfacts` (all facts for a CIK in one call), selecting quarterly duration facts by `form` (10-Q/10-K) and `fp`/`fy` and deduping by period end (latest `filed` wins), instead of relying on SEC frames. This fills off-calendar names. The provider signature and the `fund` command stay the same; only the internals change.

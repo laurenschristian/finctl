@@ -5,9 +5,21 @@
 [![CI](https://github.com/laurenschristian/finctl/actions/workflows/ci.yml/badge.svg)](https://github.com/laurenschristian/finctl/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-CLI and MCP server for markets and macro data One static binary: a CLI and an [MCP](https://modelcontextprotocol.io) server for free market, rates and macro data plus portfolio review.
+One static binary: a CLI and an [MCP](https://modelcontextprotocol.io) server for free market, macro and research data. No cgo, no paid keys for the core.
 
-> Status: planning + scaffold. See [PLAN.md](PLAN.md) for the full command set, data providers and build order, and [docs/data-sources.md](docs/data-sources.md) for ~60 verified free data sources. `finctl doctor` and `finctl mcp` work today.
+```console
+finctl quote AAPL MSFT           # delayed quote, change, day range (Cboe, Yahoo fallback)
+finctl chart NVDA --range 6m     # price history + a sparkline
+finctl fund MSFT                 # revenue, capex, shares by fiscal period (SEC XBRL)
+finctl capex --quarters 4        # hyperscaler capex, YoY (MSFT/GOOGL/AMZN/META/ORCL)
+finctl crypto bitcoin ethereum   # crypto spot (CoinGecko; args are coin ids)
+finctl fx USD                    # spot FX from a base (ECB via Frankfurter)
+finctl cache clear               # drop the on-disk cache
+finctl doctor                    # config, cache, provider reachability
+finctl mcp                       # MCP server over stdio
+```
+
+Add `--json` to any command for machine-readable output.
 
 ## Install
 
@@ -16,11 +28,25 @@ brew install laurenschristian/tap/finctl
 go install github.com/laurenschristian/finctl@latest
 ```
 
+Or grab a binary from [Releases](https://github.com/laurenschristian/finctl/releases).
+
+## SEC contact User-Agent (required for `fund` and `capex`)
+
+SEC EDGAR rejects requests without a contact in the User-Agent (HTTP 403). Set one once:
+
+```console
+export FINCTL_USER_AGENT="finctl/0.1 (you@example.com)"
+```
+
+Or put `user_agent: finctl/0.1 (you@example.com)` in the config file. The keyless market commands (`quote`, `chart`, `crypto`, `fx`) work without it.
+
+> Known limit (v0.1): `fund` uses SEC XBRL frames, which only cover calendar-quarter facts. Off-calendar fiscal-year filers (NVDA in January, AAPL in September) return sparse or empty rows. The v0.2 `companyfacts`-based fix is tracked in [docs/PRDs/02-research-commands.md](docs/PRDs/02-research-commands.md).
+
 ## Configure
 
-Precedence is flags, then environment (`FIN_URL`, `FIN_USER`, `FIN_PASS`, `FIN_CONFIG`), then the config file
+Precedence is flags, then environment (`FINCTL_USER_AGENT`, `FINCTL_CACHE_DIR`, `FINCTL_CONFIG`), then the config file
 (`~/Library/Application Support/finctl/config.yaml` on macOS, `~/.config/finctl/config.yaml` on Linux).
-`password_cmd` runs any command that prints the secret, so it can live in a keychain, `op read`, `pass` or sops.
+Provider keys are optional and off the v0.1 path; set them later with `FINCTL_<PROVIDER>_KEY` or a `*_key_cmd` that prints the secret from a keychain, `op read`, `pass` or sops.
 
 ## MCP
 
@@ -28,12 +54,25 @@ Precedence is flags, then environment (`FIN_URL`, `FIN_USER`, `FIN_PASS`, `FIN_C
 claude mcp add fin -- finctl mcp
 ```
 
+Six tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `fin_fx`. Any stdio MCP client (Cursor, Claude Desktop, Zed) works the same: command `finctl`, args `["mcp"]`.
+
+## Data sources (v0.1, keyless)
+
+- Quotes and charts: Cboe delayed, Yahoo fallback
+- Fundamentals and capex: SEC EDGAR XBRL (needs a contact User-Agent)
+- Crypto: CoinGecko
+- FX: Frankfurter (ECB reference rates)
+
+Responses are cached on disk (pure-Go SQLite) with per-provider TTLs and rate limits. See [docs/data-sources.md](docs/data-sources.md) for the full catalog and [PLAN.md](PLAN.md) for the roadmap (macro, filings, portfolio, research).
+
 ## Development
 
 ```console
 make hooks    # gofmt, dash check, gitleaks, build, lint on commit; tests + coverage floor on push
 make test
-make lint
+make cover    # floor in scripts/coverage.sh
+make lint     # golangci-lint, config in .golangci.yml
+make sec      # gosec
 make docs     # regenerate man/ and docs/cli/
 ```
 

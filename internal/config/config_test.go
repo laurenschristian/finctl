@@ -7,44 +7,56 @@ import (
 	"testing"
 )
 
-func TestSaveLoadResolve(t *testing.T) {
+func TestSaveLoadAndDefaults(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "c.yaml")
-	t.Setenv("FIN_CONFIG", p)
-	for _, k := range []string{"FIN_URL", "FIN_USER", "FIN_PASS"} {
-		t.Setenv(k, "")
-	}
-	if err := Save(&Config{URL: "http://a/", Username: "u", PasswordCmd: "echo secret"}); err != nil {
+	t.Setenv("FINCTL_CONFIG", p)
+	if err := Save(&Config{VaultDir: "/v", FredKeyCmd: "echo k"}); err != nil {
 		t.Fatal(err)
 	}
-	st, _ := os.Stat(p)
-	if st.Mode().Perm() != 0o600 {
+	if st, _ := os.Stat(p); st.Mode().Perm() != 0o600 {
 		t.Fatalf("mode %v", st.Mode())
 	}
 	c, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := c.Resolve(); err != nil || c.Password != "secret" || c.URL != "http://a" {
-		t.Fatalf("%v %+v", err, c)
+	if c.IBKRURL != "https://localhost:5001" || c.VaultDir != "/v" {
+		t.Fatalf("defaults %+v", c)
 	}
-	t.Setenv("FIN_URL", "http://b")
-	t.Setenv("FIN_USER", "v")
-	t.Setenv("FIN_PASS", "pw")
-	c, _ = Load()
-	_ = c.Resolve()
-	if c.URL != "http://b" || c.Username != "v" || c.Password != "pw" {
-		t.Fatalf("env override %+v", c)
+	if c.UA() == "" || !strings.Contains(c.UA(), "finctl") {
+		t.Fatalf("ua %q", c.UA())
+	}
+}
+
+func TestKeyResolution(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "c.yaml")
+	t.Setenv("FINCTL_CONFIG", p)
+	_ = Save(&Config{FredKeyCmd: "echo fromcmd"})
+	c, _ := Load()
+	if k, _ := c.Key("fred"); k != "fromcmd" {
+		t.Fatalf("cmd key %q", k)
+	}
+	t.Setenv("FINCTL_FRED_KEY", "fromenv")
+	if k, _ := c.Key("fred"); k != "fromenv" {
+		t.Fatalf("env key %q", k)
+	}
+	if k, _ := c.Key("eia"); k != "" {
+		t.Fatalf("unset key %q", k)
+	}
+	if !c.Configured()["fred"] || c.Configured()["bls"] {
+		t.Fatalf("configured %+v", c.Configured())
 	}
 }
 
 func TestPathAndBadYAML(t *testing.T) {
+	t.Setenv("FINCTL_CONFIG", "")
 	t.Setenv("FIN_CONFIG", "")
 	if !strings.HasSuffix(Path(), filepath.Join("finctl", "config.yaml")) {
 		t.Fatal(Path())
 	}
 	p := filepath.Join(t.TempDir(), "c.yaml")
-	t.Setenv("FIN_CONFIG", p)
-	_ = os.WriteFile(p, []byte("url: [x"), 0o600)
+	t.Setenv("FINCTL_CONFIG", p)
+	_ = os.WriteFile(p, []byte("vault_dir: [x"), 0o600)
 	if _, err := Load(); err == nil {
 		t.Fatal("want yaml error")
 	}
