@@ -152,11 +152,36 @@ func mcpServer() *mcp.Server {
 			}
 			return wrap(out, nil)
 		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_short", Description: "FINRA consolidated short interest, days-to-cover, change for a ticker."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in symbolArg) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.ShortInterest(ctx, hx, in.Symbol))
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_options", Description: "Delayed Cboe option chain summary: 30d IV, put/call, max pain, OI walls."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in symbolArg) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.OptionsChain(ctx, hx, in.Symbol))
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_filings", Description: "Recent SEC filings for a ticker. form filters to 8-K/10-K/10-Q/4."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in filingsArg) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.Filings(ctx, hx, in.Symbol, in.Form, in.N))
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_insider", Description: "Recent Form 4 insider filings for a ticker (SEC submissions)."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in symbolArg) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.Insider(ctx, hx, in.Symbol, 20))
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_dilution", Description: "Shares-outstanding trend and dilution flag for a ticker (SEC XBRL)."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in symbolArg) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.Dilution(ctx, hx, in.Symbol))
+		})
 	return s
 }
 
 type idsArg struct {
 	IDs []string `json:"ids,omitempty"`
+}
+type filingsArg struct {
+	Symbol string `json:"symbol"`
+	Form   string `json:"form,omitempty"`
+	N      int    `json:"n,omitempty"`
 }
 type gpusArg struct {
 	GPUs []string `json:"gpus,omitempty"`

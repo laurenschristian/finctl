@@ -27,6 +27,14 @@ finctl series DGS10 --n 6        # any FRED series (needs FINCTL_FRED_KEY)
 finctl tw-revenue                # TWSE monthly revenue, AI-server ODM basket (MoM/YoY)
 finctl gpu-rent --trend          # vast.ai H100/B200 $/hr low + median, stored over time
 
+finctl research NVDA             # one-screen dossier (quote, fund, short, options, insider)
+finctl lens NVDA                 # Serenity checklist with computable items filled in
+finctl short NVDA                # FINRA short interest, days-to-cover (keyless)
+finctl options NVDA              # Cboe chain: 30d IV, put/call, max pain, OI walls
+finctl filings NVDA --form 8-K   # recent SEC filings
+finctl insider NVDA              # recent Form 4 filings
+finctl dilution NVDA             # shares-outstanding trend + dilution flag
+
 finctl cache clear               # drop the on-disk cache
 finctl doctor                    # config, cache, provider reachability
 finctl mcp                       # MCP server over stdio
@@ -67,7 +75,7 @@ Provider keys are optional and off the keyless path; set them later with `FINCTL
 claude mcp add fin -- finctl mcp
 ```
 
-Fourteen tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `fin_fx`, `fin_rates`, `fin_fedodds`, `fin_cot`, `fin_series`, `fin_fiscal`, `fin_energy`, `fin_tw_revenue`, `fin_gpu_rent`. Any stdio MCP client (Cursor, Claude Desktop, Zed) works the same: command `finctl`, args `["mcp"]`.
+Nineteen tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `fin_fx`, `fin_rates`, `fin_fedodds`, `fin_cot`, `fin_series`, `fin_fiscal`, `fin_energy`, `fin_tw_revenue`, `fin_gpu_rent`, `fin_short`, `fin_options`, `fin_filings`, `fin_insider`, `fin_dilution`. Any stdio MCP client (Cursor, Claude Desktop, Zed) works the same: command `finctl`, args `["mcp"]`.
 
 ## Data sources
 
@@ -82,6 +90,9 @@ Fourteen tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`,
 - Macro series: FRED (free key via `FINCTL_FRED_KEY`)
 - Taiwan ODM revenue: TWSE OpenAPI monthly revenue
 - GPU rental spot: vast.ai on-demand offers
+- Short interest: FINRA consolidated short interest
+- Options: Cboe delayed option chains
+- Filings and insiders: SEC EDGAR submissions feed (Form 4)
 
 Responses are cached on disk (pure-Go SQLite) with per-provider TTLs and rate limits. See [docs/data-sources.md](docs/data-sources.md) for the full catalog and [PLAN.md](PLAN.md) for the roadmap (macro, filings, portfolio, research).
 

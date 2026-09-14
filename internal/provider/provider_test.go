@@ -76,6 +76,18 @@ func register(mux *http.ServeMux) {
 	mux.HandleFunc("/bundles/", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"offers":[{"dph_total":4.0,"num_gpus":2},{"dph_total":1.9,"num_gpus":1},{"dph_total":6.0,"num_gpus":2}]}`))
 	})
+	mux.HandleFunc("/data/group/otcMarket/name/consolidatedShortInterest", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"symbolCode":"NVDA","settlementDate":"2020-04-15","currentShortPositionQuantity":100,"previousShortPositionQuantity":90,"averageDailyVolumeQuantity":50,"daysToCoverQuantity":2,"changePercent":11.1},{"symbolCode":"NVDA","settlementDate":"2026-08-31","currentShortPositionQuantity":298,"previousShortPositionQuantity":285,"averageDailyVolumeQuantity":140,"daysToCoverQuantity":2.1,"changePercent":4.32}]`))
+	})
+	mux.HandleFunc("/options/NVDA.json", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"current_price":212.3,"iv30":33.28,"options":[` +
+			`{"option":"NVDA260914C00200000","open_interest":1000},` +
+			`{"option":"NVDA260914P00200000","open_interest":900},` +
+			`{"option":"NVDA260914C00220000","open_interest":500}]}}`))
+	})
+	mux.HandleFunc("/submissions/CIK0001045810.json", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"filings":{"recent":{"accessionNumber":["0001-1","0001-2","0001-3"],"form":["8-K","4","10-Q"],"filingDate":["2026-09-03","2026-09-11","2026-08-20"],"reportDate":["","",""],"primaryDocument":["a.htm","b.htm","c.htm"],"primaryDocDescription":["8-K","FORM 4","10-Q"]}}}`))
+	})
 }
 
 // companyFactsFixture: Q2 discrete revenue (30000), a de-cumulable capex YTD
@@ -204,6 +216,25 @@ func TestProviders(t *testing.T) {
 	// per-gpu asks: 4/2=2.0, 1.9, 6/2=3.0 -> sorted [1.9,2.0,3.0], median 2.0.
 	if gr.Median != 2.0 {
 		t.Fatalf("gpu median %+v", gr)
+	}
+	si, err := ShortInterest(ctx, h, "NVDA")
+	if err != nil || si.SettlementDate != "2026-08-31" || si.Current != 298 {
+		t.Fatalf("short %v %+v", err, si) // must pick the latest settlement, not the first row
+	}
+	oc, err := OptionsChain(ctx, h, "NVDA")
+	if err != nil || oc.FrontIV != 33.28 || oc.Underlying != 212.3 {
+		t.Fatalf("options %v %+v", err, oc)
+	}
+	if oc.PutCallRatio != 900.0/1500.0 { // putOI 900 / callOI (1000+500)
+		t.Fatalf("options p/c %+v", oc)
+	}
+	fl, err := Filings(ctx, h, "NVDA", "8-K", 10)
+	if err != nil || len(fl) != 1 || fl[0].Form != "8-K" {
+		t.Fatalf("filings %v %+v", err, fl)
+	}
+	ins, err := Insider(ctx, h, "NVDA", 10)
+	if err != nil || len(ins) != 1 || ins[0].Form != "4" {
+		t.Fatalf("insider %v %+v", err, ins)
 	}
 }
 

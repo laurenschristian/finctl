@@ -151,3 +151,50 @@ type GPURent struct {
 	Offers int     `json:"offers"`
 	AsOf   string  `json:"asOf"`
 }
+
+// ShortInterest is one FINRA consolidated short-interest settlement.
+type ShortInterest struct {
+	Symbol         string  `json:"symbol"`
+	SettlementDate string  `json:"settlementDate"`
+	Current        float64 `json:"current"`
+	Previous       float64 `json:"previous,omitempty"`
+	ChangePct      float64 `json:"changePct,omitempty"`
+	DaysToCover    float64 `json:"daysToCover,omitempty"`
+	AvgDailyVol    float64 `json:"avgDailyVol,omitempty"`
+}
+
+// Strike is one strike's open interest, for option walls.
+type Strike struct {
+	Strike float64 `json:"strike"`
+	OI     float64 `json:"oi"`
+}
+
+// OptionsSummary distills a delayed Cboe option chain.
+type OptionsSummary struct {
+	Symbol       string   `json:"symbol"`
+	Underlying   float64  `json:"underlying,omitempty"`
+	FrontIV      float64  `json:"frontIV,omitempty"`
+	PutCallRatio float64  `json:"putCallRatio,omitempty"`
+	MaxPain      float64  `json:"maxPain,omitempty"`
+	OIWalls      []Strike `json:"oiWalls,omitempty"`
+	Expiries     int      `json:"expiries,omitempty"`
+}
+
+// Filing is one SEC submission.
+type Filing struct {
+	Form       string `json:"form"`
+	FilingDate string `json:"filingDate"`
+	ReportDate string `json:"reportDate,omitempty"`
+	Accession  string `json:"accession"`
+	Doc        string `json:"doc,omitempty"`
+	Desc       string `json:"desc,omitempty"`
+	URL        string `json:"url,omitempty"`
+}
+
+// DilutionReport is the shares-outstanding trend with a simple growth flag.
+type DilutionReport struct {
+	Symbol      string  `json:"symbol"`
+	Points      []Obs   `json:"points"`
+	ChangePctYr float64 `json:"changePctYr,omitempty"`
+	Flag        string  `json:"flag,omitempty"`
+}

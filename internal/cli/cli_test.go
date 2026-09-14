@@ -83,6 +83,15 @@ func fixtures(t *testing.T) {
 	mux.HandleFunc("/bundles/", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"offers":[{"dph_total":4.0,"num_gpus":2},{"dph_total":1.9,"num_gpus":1}]}`))
 	})
+	mux.HandleFunc("/data/group/otcMarket/name/consolidatedShortInterest", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"symbolCode":"NVDA","settlementDate":"2026-08-31","currentShortPositionQuantity":298,"previousShortPositionQuantity":285,"averageDailyVolumeQuantity":140,"daysToCoverQuantity":2.1,"changePercent":4.32}]`))
+	})
+	mux.HandleFunc("/options/NVDA.json", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"current_price":212.3,"iv30":33.28,"options":[{"option":"NVDA260914C00200000","open_interest":1000},{"option":"NVDA260914P00200000","open_interest":900}]}}`))
+	})
+	mux.HandleFunc("/submissions/CIK0001045810.json", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"filings":{"recent":{"accessionNumber":["0001-1","0001-2"],"form":["8-K","4"],"filingDate":["2026-09-03","2026-09-11"],"reportDate":["",""],"primaryDocument":["a.htm","b.htm"],"primaryDocDescription":["8-K","FORM 4"]}}}`))
+	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	provider.SetBases(srv.URL)
@@ -111,6 +120,13 @@ func TestCommands(t *testing.T) {
 		{[]string{"macro", "brief"}, "RATES"},
 		{[]string{"tw-revenue", "2330"}, "台積電"},
 		{[]string{"gpu-rent", "H100 SXM"}, "LOW"},
+		{[]string{"short", "NVDA"}, "days to cover"},
+		{[]string{"options", "NVDA"}, "max pain"},
+		{[]string{"filings", "NVDA", "--form", "8-K"}, "FORM"},
+		{[]string{"insider", "NVDA"}, "FORM"},
+		{[]string{"dilution", "NVDA"}, "shares"},
+		{[]string{"research", "NVDA"}, "== NVDA =="},
+		{[]string{"lens", "NVDA"}, "Serenity lens"},
 	}
 	for _, c := range cases {
 		out, err := run(t, c.args...)
@@ -160,7 +176,7 @@ func TestMCPTools(t *testing.T) {
 	}
 	defer func() { _ = sess.Close() }()
 	tools, err := sess.ListTools(context.Background(), nil)
-	if err != nil || len(tools.Tools) != 14 {
+	if err != nil || len(tools.Tools) != 19 {
 		t.Fatalf("tools=%d %v", len(tools.Tools), err)
 	}
 }

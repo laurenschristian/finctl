@@ -24,6 +24,10 @@ Single-command answers to "what is this stock" so the agent (and I) stop stitchi
 - `dilution <T>` *: shares-outstanding trend from XBRL + ATM/shelf detection (8-K/424B via edgar fts). `--json` = shares series + flags.
 - `margins <T>` *: GAAP vs non-GAAP gap from XBRL + press-release 8-K. Serenity input.
 
+## Status: SHIPPED v0.5.0 (2026-09-14)
+
+Delivered: short (FINRA), options (Cboe chain: 30d IV, put/call by OI, max pain, OI walls), filings (SEC submissions), insider (Form 4 filings list), dilution (shares trend + flag), research (compose), lens (Serenity computable items + manual list). DEFERRED: congress (DisclosedCapitol 308-redirects, needs a follow), margins (non-GAAP requires press-release 8-K parsing), earnings (finnhub key), deep Form 4 transaction parsing (filer/shares/price), edgar full-text search, compare. 5 new MCP tools (fin_short/options/filings/insider/dilution). Insider is a filings list, not parsed transactions; dilution YoY can be distorted across a stock split.
+
 ## Data model (internal/model)
 
 `Quote{Symbol, Last, Change, ChangePct, DayLow, DayHigh, Volume, MarketCap, Week52Low, Week52High, Time}`. `Fundamentals{Symbol, Periods []Period}` where `Period{FiscalPeriod, Revenue, GrossMargin, Opex, FCF, SharesOut, GAAPNetMargin, NonGAAPNetMargin}`. `InsiderTx{Filer, Role, Date, Type, Shares, Price, Value}`. `ShortInterest{Symbol, SettlementDate, Current, Previous, ChangePct, DaysToCover}`. `OptionsSummary{Symbol, FrontIV, IVSkew, PutCallRatio, MaxPain, OIWalls []Strike}`.
