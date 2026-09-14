@@ -198,3 +198,28 @@ type DilutionReport struct {
 	ChangePctYr float64 `json:"changePctYr,omitempty"`
 	Flag        string  `json:"flag,omitempty"`
 }
+
+// Position is one holding, optionally with vault target weight and drift.
+type Position struct {
+	Symbol       string  `json:"symbol"`
+	Qty          float64 `json:"qty"`
+	Price        float64 `json:"price,omitempty"`
+	Value        float64 `json:"value"`
+	CostBasis    float64 `json:"costBasis,omitempty"`
+	UnrealPnL    float64 `json:"unrealPnL,omitempty"`
+	Weight       float64 `json:"weight,omitempty"`
+	TargetWeight float64 `json:"targetWeight,omitempty"`
+	Drift        float64 `json:"drift,omitempty"`
+	Account      string  `json:"account,omitempty"`
+}
+
+// WatchRow is a watchlist row with live price and distance to buy-zone.
+type WatchRow struct {
+	Symbol           string  `json:"symbol"`
+	Last             float64 `json:"last,omitempty"`
+	BuyLow           float64 `json:"buyLow,omitempty"`
+	BuyHigh          float64 `json:"buyHigh,omitempty"`
+	DistanceToBuyPct float64 `json:"distanceToBuyPct,omitempty"`
+	Thesis           string  `json:"thesis,omitempty"`
+	InZone           bool    `json:"inZone,omitempty"`
+}

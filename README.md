@@ -35,6 +35,9 @@ finctl filings NVDA --form 8-K   # recent SEC filings
 finctl insider NVDA              # recent Form 4 filings
 finctl dilution NVDA             # shares-outstanding trend + dilution flag
 
+finctl port                      # IBKR positions vs vault targets, drift (account ids redacted)
+finctl watchlist                 # vault watchlist with live price and distance to buy-zone
+
 finctl cache clear               # drop the on-disk cache
 finctl doctor                    # config, cache, provider reachability
 finctl mcp                       # MCP server over stdio
@@ -75,7 +78,7 @@ Provider keys are optional and off the keyless path; set them later with `FINCTL
 claude mcp add fin -- finctl mcp
 ```
 
-Nineteen tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `fin_fx`, `fin_rates`, `fin_fedodds`, `fin_cot`, `fin_series`, `fin_fiscal`, `fin_energy`, `fin_tw_revenue`, `fin_gpu_rent`, `fin_short`, `fin_options`, `fin_filings`, `fin_insider`, `fin_dilution`. Any stdio MCP client (Cursor, Claude Desktop, Zed) works the same: command `finctl`, args `["mcp"]`.
+Twenty-one tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `fin_fx`, `fin_rates`, `fin_fedodds`, `fin_cot`, `fin_series`, `fin_fiscal`, `fin_energy`, `fin_tw_revenue`, `fin_gpu_rent`, `fin_short`, `fin_options`, `fin_filings`, `fin_insider`, `fin_dilution`, `fin_port`, `fin_watchlist`. Any stdio MCP client (Cursor, Claude Desktop, Zed) works the same: command `finctl`, args `["mcp"]`.
 
 ## Data sources
 
@@ -93,8 +96,14 @@ Nineteen tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`,
 - Short interest: FINRA consolidated short interest
 - Options: Cboe delayed option chains
 - Filings and insiders: SEC EDGAR submissions feed (Form 4)
+- Portfolio: the local IBKR Client Portal gateway (ibkrctl daemon; account ids redacted)
+- Targets and watchlist: your Obsidian vault (read-only markdown tables)
 
 Responses are cached on disk (pure-Go SQLite) with per-provider TTLs and rate limits. See [docs/data-sources.md](docs/data-sources.md) for the full catalog and [PLAN.md](PLAN.md) for the roadmap (macro, filings, portfolio, research).
+
+## Portfolio (port, watchlist)
+
+`port` reuses the IBKR Client Portal gateway that [ibkrctl](https://github.com/laurenschristian/ibkrctl) runs on `localhost:5001`: finctl never logs in. If the session is not authenticated it tells you to run `ibkrctl login`. Account ids and holder names are redacted to `account-1`, `account-2` before anything is printed, exactly like ibkrctl. Target weights and watchlist buy-zones are read from your Obsidian vault (`vault_dir`); finctl never writes the vault. `networth` and `port review` are planned.
 
 ## Development
 

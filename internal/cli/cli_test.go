@@ -92,11 +92,27 @@ func fixtures(t *testing.T) {
 	mux.HandleFunc("/submissions/CIK0001045810.json", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"filings":{"recent":{"accessionNumber":["0001-1","0001-2"],"form":["8-K","4"],"filingDate":["2026-09-03","2026-09-11"],"reportDate":["",""],"primaryDocument":["a.htm","b.htm"],"primaryDocDescription":["8-K","FORM 4"]}}}`))
 	})
+	// Fake IBKR gateway for port.
+	mux.HandleFunc("/v1/api/iserver/auth/status", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"authenticated":true,"connected":true}`))
+	})
+	mux.HandleFunc("/v1/api/portfolio/accounts", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"accountId":"U16472226"}]`))
+	})
+	mux.HandleFunc("/v1/api/portfolio/U16472226/positions/0", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`[{"ticker":"NVDA","position":100,"mktPrice":200,"mktValue":20000,"avgCost":150,"unrealizedPnl":5000}]`))
+	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	provider.SetBases(srv.URL)
+	// A temp vault with a Dashboard target and a watchlist note.
+	vd := t.TempDir()
+	_ = os.WriteFile(vd+"/Dashboard.md", []byte("| Ticker | Target |\n|---|---|\n| NVDA | 25% |\n"), 0o600)
+	_ = os.WriteFile(vd+"/Watchlist.md", []byte("| Ticker | Buy Zone | Thesis |\n|---|---|---|\n| NVDA | 150 - 170 | AI |\n"), 0o600)
 	t.Setenv("FINCTL_CONFIG", os.DevNull)
 	t.Setenv("FINCTL_CACHE_DIR", t.TempDir())
+	t.Setenv("FINCTL_IBKR_URL", srv.URL)
+	t.Setenv("FINCTL_VAULT_DIR", vd)
 }
 
 func TestCommands(t *testing.T) {
@@ -127,6 +143,8 @@ func TestCommands(t *testing.T) {
 		{[]string{"dilution", "NVDA"}, "shares"},
 		{[]string{"research", "NVDA"}, "== NVDA =="},
 		{[]string{"lens", "NVDA"}, "Serenity lens"},
+		{[]string{"port"}, "SYMBOL"},
+		{[]string{"watchlist"}, "BUY ZONE"},
 	}
 	for _, c := range cases {
 		out, err := run(t, c.args...)
@@ -176,7 +194,7 @@ func TestMCPTools(t *testing.T) {
 	}
 	defer func() { _ = sess.Close() }()
 	tools, err := sess.ListTools(context.Background(), nil)
-	if err != nil || len(tools.Tools) != 19 {
+	if err != nil || len(tools.Tools) != 21 {
 		t.Fatalf("tools=%d %v", len(tools.Tools), err)
 	}
 }

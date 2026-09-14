@@ -172,6 +172,15 @@ func mcpServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in symbolArg) (*mcp.CallToolResult, rawOut, error) {
 			return wrap(provider.Dilution(ctx, hx, in.Symbol))
 		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_port", Description: "IBKR positions with vault target weights and drift (account ids redacted)."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, rawOut, error) {
+			pos, _, err := portPositions(ctx)
+			return wrap(pos, err)
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_watchlist", Description: "Vault watchlist with live price and distance to buy-zone, closest first."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(watchRows(ctx))
+		})
 	return s
 }
 

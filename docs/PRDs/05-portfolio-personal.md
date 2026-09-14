@@ -1,6 +1,6 @@
 # finctl PRD 05: Portfolio and personal
 
-Status: draft, 2026-09-14. Depends on PRD 00, PRD 01, and ibkrctl (gateway on :5001). Providers: ibkr (via the running gateway), monarch, vault, plus quote/earnings/insider/short for `port review`.
+Status: SHIPPED v0.6.0 (2026-09-14), partial. Delivered: port (IBKR gateway positions + vault target weights + drift, account ids redacted to account-N exactly like ibkrctl, friendly `ibkrctl login` hint when the session is 401/unauthenticated), watchlist (vault buy-zones + live quotes + distance-to-buy, sorted closest-first). internal/ibkr (read-only gateway client, InsecureSkipVerify for the loopback self-signed cert) and internal/vault (tolerant markdown table parsers, read-only). Redaction verified by test (real Uxxxx never leaks; alias stable by sorted id). 2 MCP tools (fin_port, fin_watchlist). DEFERRED: networth (Monarch token + crypto holdings), port review (earnings-this-week + insider/short deltas + paste-ready block), --write to the vault. Live-verified watchlist end-to-end; port reached the running gateway (401 = not logged in, shows the hint). Depends on PRD 00, PRD 01, and ibkrctl (gateway on :5001). Providers: ibkr (via the running gateway), monarch, vault, plus quote/earnings/insider/short for `port review`.
 
 ## Purpose
 

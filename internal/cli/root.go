@@ -86,6 +86,8 @@ func Root() *cobra.Command {
 		dilutionCmd(),
 		researchCmd(),
 		lensCmd(),
+		portCmd(),
+		watchlistCmd(),
 		cacheCmd(),
 		keysCmd(),
 		doctorCmd(),
