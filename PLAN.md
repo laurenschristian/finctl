@@ -32,20 +32,25 @@ Research
 - `insider T | --clusters` * (EDGAR Form 4 feed + OpenInsider cluster buys)
 - `short T` * (FINRA bi-monthly), `options T` (Cboe delayed chain: IV, put/call, OI walls)
 - `filings T --form 8-K`, `edgar search "indium phosphide"` (full-text; needs UA header, 403 on naked curl, works with proper UA)
-- `congress --recent` (House/Senate PTR disclosures)
+- `congress --recent | T` * (DisclosedCapitol JSON, free, with 30d alpha per trade)
 
 Macro
 - `macro brief` *: fed funds, 2y/10y/30y + 2s10s, latest CPI/PPI/NFP/JOLTS/GDPNow prints with dates, VIX, DXY, oil, gold, BTC, Fed-cut odds from Kalshi + Polymarket + CME.
 - `rates` *, `curve [--date]`, `series FRED_ID` * (any FRED series), `calendar --week` *
 - `fedodds` * (Kalshi KXFED + Polymarket), `cot --market ES|NQ|GC|CL`, `sentiment` (Michigan, AAII if reachable, put/call, VIX term)
 - `energy` (EIA WTI/Brent/HH, rig count)
+- `fiscal` (FiscalData: avg interest on debt, auction results, debt to the penny)
+
+Voices (see docs/voices.md)
+- `voices` *, `voices tickers` *, `voices thesis <handle>`, `voice read <url>` (fxtwitter hydrate)
 
 Edge (the stuff the Serenity lens actually keys off)
 - `capex` *: hyperscaler capex per quarter straight from XBRL (MSFT, GOOGL, AMZN, META, ORCL) + YoY. Master-thesis input, free, filing-accurate.
 - `korea-exports`: first-20-days semiconductor exports (Korea Customs). Behind a JS portal; scrape or use Bloomberg-free mirror. TBD.
-- `tsmc-revenue`: monthly revenue (investor.tsmc.com is Cloudflare-gated to curl; fetch with browser UA or from TWSE MOPS).
-- `memory-prices`: DRAM/NAND spot (TrendForce free tables). TBD.
-- `gpu-rent`: H100/B200 hourly rental index (public price pages). TBD.
+- `tw-revenue [2330|2454|3231|6669...]` *: monthly revenue + YoY for TSMC, MediaTek, Wiwynn, Quanta, Hon Hai, ASE from TWSE OpenAPI (one JSON, verified). AI-server ODM demand read in one command.
+- `silicon` *: wafer price by node, HBM/DRAM pricing, packaging from SiliconAnalysts free API (3 latest points per series + citations) plus its market-pulse headlines.
+- `memory-prices`: DRAM/NAND spot beyond SiliconAnalysts (TrendForce tables, KITA export price index). TBD.
+- `gpu-rent` *: H100 SXM / B200 lowest asks and median from vast.ai bundles API (keyless). Compute spot price proxy; trend it in SQLite.
 - `dilution T` *: shares outstanding trend + ATM/shelf 8-K/424B detection from EDGAR.
 - `margins T` *: GAAP vs non-GAAP gap from XBRL + press-release 8-K.
 
@@ -68,7 +73,17 @@ FRED (fred.stlouisfed.org/docs/api/api_key.html), EIA (eia.gov/opendata), BLS v2
 ## Not in scope
 Backtesting, live streaming, order placement (ibkrctl owns that), anything paid.
 
-## Build order
+## Tomorrow: hit the ground (in order)
+1. `gh repo create laurenschristian/finctl --private` (flip public once it runs), copy adgctl layout (main.go, internal/cli, internal/config, goreleaser, workflows), `go mod init github.com/laurenschristian/finctl`.
+2. Keys: create FRED + EIA keys (2 min each), store in Keychain: `security add-generic-password -s finctl-fred -w`, `-s finctl-eia`. Finnhub key already exists in the MCP config; reuse.
+3. `internal/cache` SQLite (modernc.org/sqlite) with `get(provider,key,ttl)`; every provider call goes through it.
+4. Providers in this order, each with one Go test on a saved fixture: edgar (companyfacts + form4 atom, UA header mandatory), fedh15 (CSV), fred, cboe (quotes + options), finra (short interest), kalshi + polymarket, twse, siliconanalysts, vastai, disclosedcapitol, finnhub, yahoo chart, stocktwits, coingecko, frankfurter, fiscaldata.
+5. Commands quote, fund, series, rates, macro brief, fedodds, insider, short, earnings, capex, tw-revenue, silicon, gpu-rent, congress. Ship v0.1.0 here.
+6. Vault parsers (Dashboard target table, watchlist note, Transaction Log) + `port`, `watchlist` against the IBKR gateway on :5001 (needs ibkrctl daemon or the existing npx gateway running).
+7. `research`, `lens`, `daily`, `mcp`. Ship v0.2.0. Rewrite `/invest` skill to call finctl and shrink it.
+8. Voices: xcancel whitelist request + Chrome CDP reader on the Mac mini. v0.3.0.
+
+## Build order (original)
 1. providers: edgar (xbrl, form4), treasury+fed h15, fred, cboe, finra, kalshi/polymarket, finnhub, yahoo chart, stocktwits + cache
 2. commands: quote, fund, series, rates, macro brief, fedodds, insider, short, earnings, capex
 3. vault parsers + port/watchlist (needs gateway)

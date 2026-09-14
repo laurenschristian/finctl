@@ -66,3 +66,36 @@ Legend: OK = works keyless; KEY = free key; UA = needs a real User-Agent; CF = C
 | IBKR Client Portal gateway | positions, P&L, orders | needs ibkrctl daemon on :5001 (see plan) |
 | Monarch Money | balances, cashflow | GraphQL with token (existing MCP works; reuse token) |
 | Obsidian vault | targets, watchlist, theses, tracker CSV | local files, parse markdown tables |
+
+## Round 2 (Exa research + curl, 2026-09-13 late)
+
+### New, verified working keyless
+| Source | What | Endpoint / note |
+| --- | --- | --- |
+| TWSE OpenAPI monthly revenue | every TW-listed company's monthly revenue incl. TSMC (2330), MoM/YoY, one JSON (600 KB) | `openapi.twse.com.tw/v1/opendata/t187ap05_L` ; TSMC Aug-2026 = 514.8B TWD, +53.3% YoY. Replaces the Cloudflare-gated investor site. Also covers ASE, MediaTek, Hon Hai, Wiwynn, Quanta (AI server ODMs). |
+| DisclosedCapitol | congress trades per ticker / politician, JSON, with 30d alpha | `disclosedcapitol.com/api/tickers/NVDA/trades`, `/api/politicians` |
+| SiliconAnalysts market-data | wafer price by node, HBM/DRAM pricing, packaging, 3 latest points free per series, with citations | `siliconanalysts.com/api/v1/market-data` |
+| SiliconAnalysts market-pulse | curated semiconductor headlines with category + impact | `siliconanalysts.com/api/v1/market-pulse` |
+| vast.ai bundles | live GPU rental asks (H100 SXM, B200) = compute spot price proxy | `console.vast.ai/api/v0/bundles/?q={"gpu_name":{"eq":"H100 SXM"}}` |
+| FiscalData | Treasury avg interest rates, auctions, debt to the penny | `api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/avg_interest_rates` (works; first probe was a local hiccup) |
+| fxtwitter | any single tweet + profile stats (followers, tweet count, bio) as JSON | `api.fxtwitter.com/<handle>` and `api.fxtwitter.com/<handle>/status/<id>` |
+| market.vlsi.kr | Korean semiconductor official-stat hub (HTML, 21 data routes, sources trade data + filings) | scrape candidates; note as reference |
+
+### Needs a free key
+| Source | What | Note |
+| --- | --- | --- |
+| Korea data.go.kr | Korea Customs export/import stats API (관세청) incl. HS-code level = semiconductor exports | register on data.go.kr, XML API `apis.data.go.kr/1220000/...`; the 20-day flash number itself is a press release (PDF) from Korea Customs Service; parse or use KITA |
+| DBnomics | 90 providers (ECB, IMF, BIS, OECD, Eurostat) keyless | `api.db.nomics.world/v22/series/...` (TLS failed from the Mac tonight; retry from NAS) |
+| Business Quant | 13F institutional ownership, fundamentals, filings | free key |
+
+### Failed tonight, retry from a different network
+FINRA daily short-sale volume files `cdn.finra.org/equity/regsho/daily/CNMSshvolYYYYMMDD.txt` (000), DBnomics (000), Treasury XML (000), nitter.net (000). Not AdGuard (checked with `adgctl check`).
+
+### Confirmed blocked / paid, drop
+House Stock Watcher S3 (403, dead), Tessara (403), Equibles hosted MCP (needs key; self-host is AGPL Docker, 64 tools, worth a look as a reference), Quartr/EODHD/SEC-API (paid), Reddit JSON (403 without OAuth app; free app key works), AAII.
+
+## Prior art to study, not adopt
+- Alorse/trading-cli: Go, CLI + MCP, 25 tools, TA/screener/sentiment on public APIs. Closest in shape to finctl; read its provider layer.
+- daniel3303/Equibles: self-hosted "mini Bloomberg", 64 MCP tools, XBRL parsing, EDGAR full-text. AGPL. Read how it normalizes XBRL tags.
+- himself65/finance-skills: skills pack incl. twitter-reader via Chrome Browser Bridge. Confirms the "use the logged-in Chrome" path for X.
+- OpenBB: the incumbent. Python, heavy. Copy its provider naming, nothing else.
