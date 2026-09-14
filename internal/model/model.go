@@ -222,6 +222,7 @@ type WatchRow struct {
 	DistanceToBuyPct float64 `json:"distanceToBuyPct,omitempty"`
 	Thesis           string  `json:"thesis,omitempty"`
 	InZone           bool    `json:"inZone,omitempty"`
+	BelowZone        bool    `json:"belowZone,omitempty"`
 }
 
 // Voice is a market commentator's public profile (fxtwitter).

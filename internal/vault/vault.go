@@ -28,25 +28,39 @@ var pctRe = regexp.MustCompile(`(-?\d+(?:\.\d+)?)\s*%`)
 var moneyRe = regexp.MustCompile(`\$?\s*(\d+(?:\.\d+)?)`)
 var tickerRe = regexp.MustCompile(`^[A-Z][A-Z.\-]{0,6}$`)
 
-// tableRows returns the split cells of each markdown table row in text, minus
-// the header separator row (---).
-func tableRows(text string) [][]string {
-	var rows [][]string
+// tables splits text into separate markdown tables. Each table is the cell rows
+// of one contiguous block of "|" lines (the --- separator row removed). A note
+// with several tables yields several groups, so one table's header is never
+// mistaken for another table's data row.
+func tables(text string) [][][]string {
+	var out [][][]string
+	var cur [][]string
+	flush := func() {
+		if len(cur) > 0 {
+			out = append(out, cur)
+			cur = nil
+		}
+	}
 	for _, ln := range strings.Split(text, "\n") {
 		ln = strings.TrimSpace(ln)
 		if !strings.HasPrefix(ln, "|") {
+			flush()
 			continue
 		}
 		if strings.Contains(ln, "---") {
 			continue
 		}
+		// Obsidian escapes the alias pipe in [[Name\|TICKER]] as "\|"; shield it
+		// so it is not read as a cell delimiter, then restore it inside cells.
+		ln = strings.ReplaceAll(ln, "\\|", "\x00")
 		cells := strings.Split(strings.Trim(ln, "|"), "|")
 		for i := range cells {
-			cells[i] = strings.TrimSpace(cells[i])
+			cells[i] = strings.TrimSpace(strings.ReplaceAll(cells[i], "\x00", "|"))
 		}
-		rows = append(rows, cells)
+		cur = append(cur, cells)
 	}
-	return rows
+	flush()
+	return out
 }
 
 // colIndex finds the first column whose header contains any of the keywords.
@@ -66,14 +80,20 @@ func colIndex(header []string, keywords ...string) int {
 // that has a ticker column and a target/weight column. Weights are normalized
 // to fractions (25% -> 0.25).
 func ParseTargets(text string) []Target {
-	rows := tableRows(text)
-	if len(rows) < 2 {
-		return nil
+	var rows [][]string
+	var tc, wc int
+	for _, t := range tables(text) {
+		if len(t) < 2 {
+			continue
+		}
+		tc = colIndex(t[0], "ticker", "symbol")
+		wc = colIndex(t[0], "target", "weight", "alloc")
+		if tc >= 0 && wc >= 0 {
+			rows = t
+			break
+		}
 	}
-	header := rows[0]
-	tc := colIndex(header, "ticker", "symbol")
-	wc := colIndex(header, "target", "weight", "alloc")
-	if tc < 0 || wc < 0 {
+	if rows == nil {
 		return nil
 	}
 	var out []Target
@@ -81,7 +101,7 @@ func ParseTargets(text string) []Target {
 		if tc >= len(r) || wc >= len(r) {
 			continue
 		}
-		tk := strings.ToUpper(r[tc])
+		tk := strings.ToUpper(stripLink(r[tc]))
 		if !tickerRe.MatchString(tk) {
 			continue
 		}
@@ -101,42 +121,59 @@ func ParseTargets(text string) []Target {
 // ParseWatchlist extracts watch items (ticker, buy-zone, thesis) from the first
 // markdown table with a ticker column and a buy/zone column.
 func ParseWatchlist(text string) []WatchItem {
-	rows := tableRows(text)
-	if len(rows) < 2 {
-		return nil
-	}
-	header := rows[0]
-	tc := colIndex(header, "ticker", "symbol")
-	bc := colIndex(header, "buy", "zone", "entry")
-	th := colIndex(header, "thesis", "note", "reason")
-	if tc < 0 {
-		return nil
-	}
 	var out []WatchItem
-	for _, r := range rows[1:] {
-		if tc >= len(r) {
+	seen := map[string]bool{}
+	for _, t := range tables(text) {
+		if len(t) < 2 {
 			continue
 		}
-		tk := strings.ToUpper(r[tc])
-		if !tickerRe.MatchString(tk) {
+		header := t[0]
+		tc := colIndex(header, "ticker", "symbol")
+		bc := colIndex(header, "buy", "zone", "entry")
+		th := colIndex(header, "thesis", "note", "reason")
+		// A watchlist table needs a ticker column and a buy/zone column; tables
+		// without a zone (verdict logs, trade plans) are not buy-zone sources.
+		if tc < 0 || bc < 0 {
 			continue
 		}
-		w := WatchItem{Ticker: tk}
-		if bc >= 0 && bc < len(r) {
-			nums := moneyRe.FindAllStringSubmatch(r[bc], -1)
-			if len(nums) >= 1 {
-				w.BuyLow, _ = strconv.ParseFloat(nums[0][1], 64)
+		for _, r := range t[1:] {
+			if tc >= len(r) {
+				continue
 			}
-			if len(nums) >= 2 {
-				w.BuyHigh, _ = strconv.ParseFloat(nums[1][1], 64)
+			tk := strings.ToUpper(stripLink(r[tc]))
+			if !tickerRe.MatchString(tk) || seen[tk] {
+				continue
 			}
+			w := WatchItem{Ticker: tk}
+			if bc < len(r) {
+				nums := moneyRe.FindAllStringSubmatch(r[bc], -1)
+				if len(nums) >= 1 {
+					w.BuyLow, _ = strconv.ParseFloat(nums[0][1], 64)
+				}
+				if len(nums) >= 2 {
+					w.BuyHigh, _ = strconv.ParseFloat(nums[1][1], 64)
+				}
+			}
+			if th >= 0 && th < len(r) {
+				w.Thesis = r[th]
+			}
+			seen[tk] = true
+			out = append(out, w)
 		}
-		if th >= 0 && th < len(r) {
-			w.Thesis = r[th]
-		}
-		out = append(out, w)
 	}
 	return out
+}
+
+// stripLink reduces an Obsidian cell to a bare ticker: it drops bold/italic
+// markers and unwraps [[Target — Name|TICKER]] or [[TICKER]] to the alias.
+func stripLink(cell string) string {
+	c := strings.TrimSpace(cell)
+	c = strings.ReplaceAll(c, "*", "")
+	c = strings.Trim(c, "[]")
+	if i := strings.LastIndex(c, "|"); i >= 0 {
+		c = c[i+1:]
+	}
+	return strings.TrimSpace(c)
 }
 
 // readNote returns the content of the first file under dir whose name contains
