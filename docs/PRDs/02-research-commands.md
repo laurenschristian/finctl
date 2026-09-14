@@ -52,6 +52,8 @@ Tables by default (reuse ibkrctl's tabwriter + number/money/sparkline helpers). 
 
 ## Known limitation (v0.1) and the v0.2 fix
 
+**Status: LANDED v0.2.0 (2026-09-14).** `Fundamentals` now reads companyfacts, keys facts by their own period end (companyfacts `fy`/`fp` describe the filing, not the fact, so prior-year comparatives are mislabeled if trusted), picks the tag whose data reaches furthest forward (a stale legacy revenue tag no longer shadows the current one), and de-cumulates cash-flow items (capex) from YTD filings by grouping on the fiscal-year start and differencing consecutive period ends. Verified live: NVDA/AAPL (off-calendar) and MSFT now all render revenue + capex + shares. Rows are labeled CYyyyyQn from the period end; the fiscal-Q4 quarter (annual-only filing) is an intentional gap.
+
 `fund` v0.1 uses SEC "frames" (facts SEC tags with a calendar-quarter `CYyyyyQn`). Companies whose fiscal year aligns to calendar quarters (MSFT, GOOGL, META) render a clean revenue/capex/shares trend. Companies with off-calendar fiscal years (NVDA Jan, AAPL Sep) rarely get frame tags, so `fund` shows few or no rows for them (honest, never stale). `capex` is unaffected for the hyperscalers because they report on calendar-ish quarters.
 
 v0.2 first task: reimplement `Fundamentals` on `companyfacts` (all facts for a CIK in one call), selecting quarterly duration facts by `form` (10-Q/10-K) and `fp`/`fy` and deduping by period end (latest `filed` wins), instead of relying on SEC frames. This fills off-calendar names. The provider signature and the `fund` command stay the same; only the internals change.

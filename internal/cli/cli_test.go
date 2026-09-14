@@ -62,6 +62,9 @@ func fixtures(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	})
+	mux.HandleFunc("/api/xbrl/companyfacts/", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"facts":{"us-gaap":{"Revenues":{"units":{"USD":[{"start":"2025-04-01","end":"2025-06-30","val":30000,"fy":2025,"fp":"Q2","form":"10-Q","filed":"2025-07-30"}]}},"CommonStockSharesOutstanding":{"units":{"shares":[{"end":"2025-06-30","val":2400,"fy":2025,"fp":"Q2","form":"10-Q","filed":"2025-07-30"}]}}}}}`))
+	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	provider.SetBases(srv.URL)
