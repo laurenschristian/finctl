@@ -40,7 +40,7 @@ export FINCTL_USER_AGENT="finctl/0.1 (you@example.com)"
 
 Or put `user_agent: finctl/0.1 (you@example.com)` in the config file. The keyless market commands (`quote`, `chart`, `crypto`, `fx`) work without it.
 
-> Known limit (v0.1): `fund` uses SEC XBRL frames, which only cover calendar-quarter facts. Off-calendar fiscal-year filers (NVDA in January, AAPL in September) return sparse or empty rows. The v0.2 `companyfacts`-based fix is tracked in [docs/PRDs/02-research-commands.md](docs/PRDs/02-research-commands.md).
+> `fund` reads SEC XBRL companyfacts and works for off-calendar fiscal-year filers (NVDA, AAPL) too. Rows are labeled by the calendar quarter the fiscal period ended in (CY2026Q2). Cash-flow items (capex) are de-cumulated from year-to-date filings. The fiscal-Q4 quarter has no separate quarterly filing (only the annual 10-K), so it appears as a gap, by design.
 
 ## Configure
 

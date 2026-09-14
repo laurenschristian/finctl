@@ -40,7 +40,26 @@ func register(mux *http.ServeMux) {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	})
+	// companyfacts (all facts, one call) backs Fundamentals.
+	mux.HandleFunc("/api/xbrl/companyfacts/", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(companyFactsFixture))
+	})
 }
+
+// companyFactsFixture: Q2 discrete revenue (30000), a de-cumulable capex YTD
+// chain (Q1 500, Q2 2000 -> discrete 1500), and shares outstanding (2400).
+const companyFactsFixture = `{"facts":{"us-gaap":{
+  "Revenues":{"units":{"USD":[
+    {"start":"2025-04-01","end":"2025-06-30","val":30000,"fy":2025,"fp":"Q2","form":"10-Q","filed":"2025-07-30"}
+  ]}},
+  "PaymentsToAcquirePropertyPlantAndEquipment":{"units":{"USD":[
+    {"start":"2025-01-01","end":"2025-03-31","val":500,"fy":2025,"fp":"Q1","form":"10-Q","filed":"2025-04-30"},
+    {"start":"2025-01-01","end":"2025-06-30","val":2000,"fy":2025,"fp":"Q2","form":"10-Q","filed":"2025-07-30"}
+  ]}},
+  "CommonStockSharesOutstanding":{"units":{"shares":[
+    {"end":"2025-06-30","val":2400,"fy":2025,"fp":"Q2","form":"10-Q","filed":"2025-07-30"}
+  ]}}
+}}}`
 
 func TestProviders(t *testing.T) {
 	mux := http.NewServeMux()

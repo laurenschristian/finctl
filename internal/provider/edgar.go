@@ -146,62 +146,238 @@ func capexPoints(ctx context.Context, h *httpx.Client, cik string) ([]factPoint,
 	return q, nil
 }
 
+// factRow is one XBRL fact from the companyfacts blob, keeping the fiscal
+// tagging (fy/fp/form/filed) frames throw away.
+type factRow struct {
+	Start, End, FP, Form, Filed string
+	FY                          int
+	Val                         float64
+}
+
+// companyFacts fetches every fact for a CIK in one call and indexes it by
+// us-gaap tag. Unlike frames, companyfacts includes off-calendar fiscal-year
+// filers (NVDA, AAPL), so fund works for them too.
+func companyFacts(ctx context.Context, h *httpx.Client, cik string) (map[string][]factRow, error) {
+	u := fmt.Sprintf("%s/api/xbrl/companyfacts/%s.json", edgarData, cik)
+	b, err := h.Get(ctx, "edgar", u, edgarFactsTTL)
+	if err != nil {
+		return nil, edgarErr(err)
+	}
+	var raw struct {
+		Facts map[string]map[string]struct {
+			Units map[string][]struct {
+				Start string  `json:"start"`
+				End   string  `json:"end"`
+				Val   float64 `json:"val"`
+				FY    int     `json:"fy"`
+				FP    string  `json:"fp"`
+				Form  string  `json:"form"`
+				Filed string  `json:"filed"`
+			} `json:"units"`
+		} `json:"facts"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return nil, err
+	}
+	out := map[string][]factRow{}
+	for _, tags := range raw.Facts { // us-gaap, dei
+		for tag, fact := range tags {
+			for _, arr := range fact.Units { // USD, shares
+				for _, e := range arr {
+					out[tag] = append(out[tag], factRow{
+						Start: e.Start, End: e.End, FP: e.FP, Form: e.Form,
+						Filed: e.Filed, FY: e.FY, Val: e.Val,
+					})
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
+// spanDays returns the day count of a duration fact, or -1 if unparseable.
+func spanDays(start, end string) int {
+	const d = "2006-01-02"
+	s, err1 := time.Parse(d, start)
+	e, err2 := time.Parse(d, end)
+	if start == "" || err1 != nil || err2 != nil {
+		return -1
+	}
+	return int(e.Sub(s).Hours() / 24)
+}
+
+// cyLabel maps a period-end date to a calendar-quarter label (CY2024Q2). The
+// fact's own end date is authoritative; companyfacts fy/fp describe the filing,
+// not the period, so a 10-K's prior-year comparatives carry the filing's fy/fp.
+func cyLabel(end string) string {
+	t, err := time.Parse("2006-01-02", end)
+	if err != nil {
+		return end
+	}
+	return fmt.Sprintf("CY%dQ%d", t.Year(), (int(t.Month())-1)/3+1)
+}
+
+// quarterly keeps one ~13-week duration fact per period end (latest filed wins),
+// keyed on the fact's own end (not fy/fp). Among the candidate tags it returns
+// the one whose data reaches furthest forward, so a stale legacy tag with only
+// old quarters never shadows the tag a filer switched to.
+func quarterly(facts map[string][]factRow, tags []string) []factRow {
+	var best []factRow
+	var bestEnd string
+	for _, tag := range tags {
+		rows, ok := facts[tag]
+		if !ok {
+			continue
+		}
+		m := map[string]factRow{} // key = period end
+		for _, r := range rows {
+			if n := spanDays(r.Start, r.End); n < 80 || n > 100 {
+				continue // keep single quarters, drop 6mo/9mo/annual durations
+			}
+			if prev, ok := m[r.End]; !ok || r.Filed > prev.Filed {
+				m[r.End] = r
+			}
+		}
+		if len(m) == 0 {
+			continue
+		}
+		out := make([]factRow, 0, len(m))
+		for _, r := range m {
+			out = append(out, r)
+		}
+		sort.Slice(out, func(i, j int) bool { return out[i].End < out[j].End })
+		if last := out[len(out)-1].End; last > bestEnd {
+			best, bestEnd = out, last
+		}
+	}
+	return best
+}
+
+// quarterlyFlow de-cumulates cash-flow facts (capex, FCF), which SEC reports
+// year-to-date. YTD facts within a fiscal year share the same start date, so
+// group by start and difference consecutive ends to recover discrete quarters.
+func quarterlyFlow(facts map[string][]factRow, tags []string) []factRow {
+	var best []factRow
+	var bestEnd string
+	for _, tag := range tags {
+		rows, ok := facts[tag]
+		if !ok {
+			continue
+		}
+		byStart := map[string]map[string]factRow{} // start -> end -> latest-filed
+		for _, r := range rows {
+			if n := spanDays(r.Start, r.End); n < 80 || n > 300 {
+				continue // 3..9 month YTD (or a discrete quarter) spans only
+			}
+			if byStart[r.Start] == nil {
+				byStart[r.Start] = map[string]factRow{}
+			}
+			if prev, ok := byStart[r.Start][r.End]; !ok || r.Filed > prev.Filed {
+				byStart[r.Start][r.End] = r
+			}
+		}
+		var out []factRow
+		for _, m := range byStart {
+			seq := make([]factRow, 0, len(m))
+			for _, r := range m {
+				seq = append(seq, r)
+			}
+			sort.Slice(seq, func(i, j int) bool { return seq[i].End < seq[j].End })
+			for i, r := range seq {
+				d := r
+				if i > 0 {
+					d.Val = r.Val - seq[i-1].Val // discrete = YTD now minus YTD prior quarter
+				}
+				out = append(out, d)
+			}
+		}
+		if len(out) == 0 {
+			continue
+		}
+		sort.Slice(out, func(i, j int) bool { return out[i].End < out[j].End })
+		if last := out[len(out)-1].End; last > bestEnd {
+			best, bestEnd = out, last
+		}
+	}
+	return best
+}
+
 // Fundamentals returns the revenue, capex, and shares-outstanding trend for a
-// ticker from SEC XBRL (frame-clean quarterly facts).
+// ticker from SEC XBRL companyfacts (quarterly, deduped by fiscal period).
 func Fundamentals(ctx context.Context, h *httpx.Client, ticker string) (*model.Fundamentals, error) {
 	cik, err := CIKFor(ctx, h, ticker)
 	if err != nil {
 		return nil, err
 	}
-	byFrame := map[string]*model.Period{}
-	get := func(frame string) *model.Period {
-		p, ok := byFrame[frame]
+	facts, err := companyFacts(ctx, h, cik)
+	if err != nil {
+		return nil, err
+	}
+	byPeriod := map[string]*model.Period{}
+	order := []string{}
+	get := func(end string) *model.Period {
+		label := cyLabel(end)
+		p, ok := byPeriod[label]
 		if !ok {
-			p = &model.Period{Fiscal: frame}
-			byFrame[frame] = p
+			p = &model.Period{Fiscal: label, End: end}
+			byPeriod[label] = p
+			order = append(order, label)
 		}
 		return p
 	}
-	if rev, err := conceptAny(ctx, h, cik, "us-gaap", revenueTags); err == nil {
-		for _, p := range rev {
-			if isQuarter(p.Frame) {
-				row := get(p.Frame)
-				row.Revenue = p.Val
-				row.End = p.End
-			}
+	for _, r := range quarterly(facts, revenueTags) {
+		get(r.End).Revenue = r.Val
+	}
+	for _, r := range quarterlyFlow(facts, capexTags) {
+		get(r.End).Capex = r.Val
+	}
+	// Shares outstanding are instant facts; overlay the value dated nearest each
+	// period end onto rows that already exist (never create shares-only rows).
+	var shares []factRow
+	for _, tag := range append(sharesTags, "EntityCommonStockSharesOutstanding") {
+		if rows, ok := facts[tag]; ok {
+			shares = append(shares, rows...)
 		}
 	}
-	if cpx, err := capexPoints(ctx, h, cik); err == nil {
-		for _, p := range cpx {
-			pd := get(p.Frame)
-			pd.Capex = p.Val
-			if pd.End == "" {
-				pd.End = p.End
+	for _, p := range byPeriod {
+		var best factRow
+		for _, s := range shares {
+			if s.End == "" {
+				continue
+			}
+			if best.End == "" || absDayDiff(s.End, p.End) < absDayDiff(best.End, p.End) {
+				best = s
 			}
 		}
-	}
-	if sh, err := conceptAny(ctx, h, cik, "us-gaap", sharesTags); err == nil {
-		for _, p := range sh {
-			if row, ok := byFrame[strings.TrimSuffix(p.Frame, "I")]; ok {
-				row.SharesOut = p.Val
-			}
+		if best.End != "" && absDayDiff(best.End, p.End) <= 45 {
+			p.SharesOut = best.Val
 		}
 	}
-	frames := make([]string, 0, len(byFrame))
-	for f := range byFrame {
-		frames = append(frames, f)
-	}
-	sort.Strings(frames)
-	cutoff := time.Now().AddDate(-3, 0, 0).Format("2006-01-02")
+	sort.Slice(order, func(i, j int) bool { return byPeriod[order[i]].End < byPeriod[order[j]].End })
 	out := &model.Fundamentals{Symbol: strings.ToUpper(ticker), CIK: cik}
-	for _, f := range frames {
-		p := byFrame[f]
-		if p.End != "" && p.End < cutoff {
-			continue // drop stale frame-aligned data rather than mislabel it as recent
-		}
-		out.Periods = append(out.Periods, *p)
+	// Keep the most recent 12 periods (roughly 8 quarters plus prior year).
+	if len(order) > 12 {
+		order = order[len(order)-12:]
+	}
+	for _, label := range order {
+		out.Periods = append(out.Periods, *byPeriod[label])
 	}
 	return out, nil
+}
+
+// absDayDiff is the absolute day gap between two YYYY-MM-DD dates (large on parse error).
+func absDayDiff(a, b string) int {
+	const d = "2006-01-02"
+	ta, e1 := time.Parse(d, a)
+	tb, e2 := time.Parse(d, b)
+	if e1 != nil || e2 != nil {
+		return 1 << 30
+	}
+	n := int(ta.Sub(tb).Hours() / 24)
+	if n < 0 {
+		n = -n
+	}
+	return n
 }
 
 // HyperscalerCapex returns recent quarterly capex per company with YoY.
