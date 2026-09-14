@@ -88,6 +88,12 @@ func register(mux *http.ServeMux) {
 	mux.HandleFunc("/submissions/CIK0001045810.json", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"filings":{"recent":{"accessionNumber":["0001-1","0001-2","0001-3"],"form":["8-K","4","10-Q"],"filingDate":["2026-09-03","2026-09-11","2026-08-20"],"reportDate":["","",""],"primaryDocument":["a.htm","b.htm","c.htm"],"primaryDocDescription":["8-K","FORM 4","10-Q"]}}}`))
 	})
+	mux.HandleFunc("/dylan522p", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"user":{"screen_name":"dylan522p","name":"Dylan","followers":161700,"tweets":14000,"description":"SemiAnalysis"}}`))
+	})
+	mux.HandleFunc("/jack/status/20", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"tweet":{"id":"20","text":"buying more $NVDA and $AMD","created_at":"2006","likes":300,"retweets":100,"replies":10,"views":0,"url":"u","author":{"screen_name":"jack"}}}`))
+	})
 }
 
 // companyFactsFixture: Q2 discrete revenue (30000), a de-cumulable capex YTD
@@ -235,6 +241,17 @@ func TestProviders(t *testing.T) {
 	ins, err := Insider(ctx, h, "NVDA", 10)
 	if err != nil || len(ins) != 1 || ins[0].Form != "4" {
 		t.Fatalf("insider %v %+v", err, ins)
+	}
+	vp, err := VoiceProfile(ctx, h, "@dylan522p")
+	if err != nil || vp.Handle != "dylan522p" || vp.Followers != 161700 {
+		t.Fatalf("voice profile %v %+v", err, vp)
+	}
+	post, err := VoiceRead(ctx, h, "https://x.com/jack/status/20")
+	if err != nil || post.Author != "jack" || len(post.Tickers) != 2 {
+		t.Fatalf("voice read %v %+v", err, post)
+	}
+	if post.Tickers[0] != "NVDA" || post.Tickers[1] != "AMD" {
+		t.Fatalf("tickers %+v", post.Tickers)
 	}
 }
 

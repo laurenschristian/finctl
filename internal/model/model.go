@@ -223,3 +223,29 @@ type WatchRow struct {
 	Thesis           string  `json:"thesis,omitempty"`
 	InZone           bool    `json:"inZone,omitempty"`
 }
+
+// Voice is a market commentator's public profile (fxtwitter).
+type Voice struct {
+	Handle    string `json:"handle"`
+	Name      string `json:"name,omitempty"`
+	Followers int64  `json:"followers,omitempty"`
+	Posts     int64  `json:"posts,omitempty"`
+	Bio       string `json:"bio,omitempty"`
+	Err       string `json:"error,omitempty"`
+}
+
+// Post is a single hydrated tweet.
+type Post struct {
+	Handle     string   `json:"handle"`
+	Author     string   `json:"author,omitempty"`
+	ID         string   `json:"id"`
+	Text       string   `json:"text"`
+	Time       string   `json:"time,omitempty"`
+	Likes      int64    `json:"likes,omitempty"`
+	Reposts    int64    `json:"reposts,omitempty"`
+	Replies    int64    `json:"replies,omitempty"`
+	Views      int64    `json:"views,omitempty"`
+	URL        string   `json:"url,omitempty"`
+	Tickers    []string `json:"tickers,omitempty"`
+	QuotedText string   `json:"quotedText,omitempty"`
+}

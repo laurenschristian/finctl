@@ -1,6 +1,6 @@
 # finctl PRD 06: Voices (X/Twitter reading)
 
-Status: draft, 2026-09-14. Ships last (v1.1.0). Depends on PRD 00. Providers: fxtwitter, plus a Chrome CDP reader on the Mac mini for timelines. See the plan's `docs/voices.md` for the handle whitelist.
+Status: SHIPPED v0.7.0 (2026-09-14), partial. Delivered: voices (fxtwitter profiles for the 20-handle default whitelist, followers/posts/bio, sorted by followers, per-handle error-tolerant), voice read <url|handle/id> (hydrate a single tweet: text, author, stats, quoted text, $CASHTAG ticker extraction). All keyless via api.fxtwitter.com. 2 MCP tools (fin_voices, fin_voice_read). DEFERRED: voices tickers (needs a logged-in timeline reader via Chrome CDP on the Mac mini or a nitter/xcancel mirror; degrades with a clear "timeline source unavailable" message), voices thesis (stored thesis doc lookup). The timeline path is isolated so a mirror swap is one file. Depends on PRD 00. Providers: fxtwitter, plus a Chrome CDP reader on the Mac mini for timelines. See the plan's `docs/voices.md` for the handle whitelist.
 
 ## Purpose
 

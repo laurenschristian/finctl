@@ -92,6 +92,12 @@ func fixtures(t *testing.T) {
 	mux.HandleFunc("/submissions/CIK0001045810.json", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"filings":{"recent":{"accessionNumber":["0001-1","0001-2"],"form":["8-K","4"],"filingDate":["2026-09-03","2026-09-11"],"reportDate":["",""],"primaryDocument":["a.htm","b.htm"],"primaryDocDescription":["8-K","FORM 4"]}}}`))
 	})
+	mux.HandleFunc("/dylan522p", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"user":{"screen_name":"dylan522p","name":"Dylan","followers":161700,"tweets":14000,"description":"SemiAnalysis"}}`))
+	})
+	mux.HandleFunc("/jack/status/20", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"tweet":{"id":"20","text":"buying $NVDA","created_at":"2006","likes":300,"retweets":100,"replies":10,"views":0,"url":"u","author":{"screen_name":"jack"}}}`))
+	})
 	// Fake IBKR gateway for port.
 	mux.HandleFunc("/v1/api/iserver/auth/status", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"authenticated":true,"connected":true}`))
@@ -145,6 +151,8 @@ func TestCommands(t *testing.T) {
 		{[]string{"lens", "NVDA"}, "Serenity lens"},
 		{[]string{"port"}, "SYMBOL"},
 		{[]string{"watchlist"}, "BUY ZONE"},
+		{[]string{"voices", "dylan522p"}, "HANDLE"},
+		{[]string{"voice", "read", "https://x.com/jack/status/20"}, "@jack"},
 	}
 	for _, c := range cases {
 		out, err := run(t, c.args...)
@@ -194,7 +202,7 @@ func TestMCPTools(t *testing.T) {
 	}
 	defer func() { _ = sess.Close() }()
 	tools, err := sess.ListTools(context.Background(), nil)
-	if err != nil || len(tools.Tools) != 21 {
+	if err != nil || len(tools.Tools) != 23 {
 		t.Fatalf("tools=%d %v", len(tools.Tools), err)
 	}
 }
