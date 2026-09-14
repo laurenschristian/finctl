@@ -42,7 +42,7 @@ homebrew_casks:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/laurenschristian/finctl"
-    description: "CLI and MCP server for eero mesh networks"
+    description: "CLI and MCP server for personal finance"
     license: "MIT"
     manpages:
       - "man/finctl.1"
