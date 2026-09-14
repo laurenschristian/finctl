@@ -13,16 +13,24 @@ import (
 
 const frankfurterTTL = 6 * time.Hour
 
-var frankfurterBase = "https://api.frankfurter.app"
+var frankfurterBase = "https://api.frankfurter.dev/v1"
 
 // FX returns spot exchange rates from a base currency to one or more targets
 // (ECB reference rates via Frankfurter).
 func FX(ctx context.Context, h *httpx.Client, from string, to []string) ([]model.FXRate, error) {
 	from = strings.ToUpper(from)
 	q := url.Values{}
-	q.Set("from", from)
-	if len(to) > 0 {
-		q.Set("to", strings.ToUpper(strings.Join(to, ",")))
+	q.Set("base", from)
+	// Frankfurter 422s when a symbol equals the base, so drop those. With no
+	// symbols left (e.g. "fx USD"), omit symbols and return every rate.
+	syms := make([]string, 0, len(to))
+	for _, t := range to {
+		if u := strings.ToUpper(t); u != "" && u != from {
+			syms = append(syms, u)
+		}
+	}
+	if len(syms) > 0 {
+		q.Set("symbols", strings.Join(syms, ","))
 	}
 	u := frankfurterBase + "/latest?" + q.Encode()
 	b, err := h.Get(ctx, "frankfurter", u, frankfurterTTL)

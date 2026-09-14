@@ -110,3 +110,30 @@ func TestProviders(t *testing.T) {
 		t.Fatal("want unknown ticker error")
 	}
 }
+
+func TestFXDropsBaseFromSymbols(t *testing.T) {
+	var gotSymbols, gotBase string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotBase = r.URL.Query().Get("base")
+		gotSymbols = r.URL.Query().Get("symbols")
+		_, _ = w.Write([]byte(`{"base":"USD","date":"2026-09-14","rates":{"EUR":0.9}}`))
+	}))
+	defer srv.Close()
+	old := frankfurterBase
+	frankfurterBase = srv.URL
+	defer func() { frankfurterBase = old }()
+
+	// "fx USD" passes USD as base and as the only target; the target must be dropped.
+	if _, err := FX(context.Background(), httpx.New(nil, "test"), "USD", []string{"USD"}); err != nil {
+		t.Fatalf("fx: %v", err)
+	}
+	if gotBase != "USD" || gotSymbols != "" {
+		t.Fatalf("want base USD and empty symbols, got base=%q symbols=%q", gotBase, gotSymbols)
+	}
+	if _, err := FX(context.Background(), httpx.New(nil, "test"), "USD", []string{"EUR", "USD"}); err != nil {
+		t.Fatalf("fx: %v", err)
+	}
+	if gotSymbols != "EUR" {
+		t.Fatalf("want symbols EUR, got %q", gotSymbols)
+	}
+}
