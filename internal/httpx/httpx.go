@@ -33,15 +33,16 @@ type Client struct {
 // hard 10/s total cap; the rest are courtesy limits well under any documented
 // quota. Unlisted providers get defaultRate.
 var providerRate = map[string]rate.Limit{
-	"edgar":    8, // stay under the SEC 10/s hard cap with headroom
-	"finra":    4,
-	"cftc":     4,
-	"fred":     8,
-	"treasury": 4,
-	"kalshi":   4,
-	"eia":      4,
-	"twse":     4,
-	"vastai":   4,
+	"edgar":     8, // stay under the SEC 10/s hard cap with headroom
+	"finra":     4,
+	"cftc":      4,
+	"fred":      8,
+	"treasury":  4,
+	"kalshi":    4,
+	"eia":       4,
+	"twse":      4,
+	"vastai":    4,
+	"fxtwitter": 4,
 }
 
 const defaultRate rate.Limit = 5

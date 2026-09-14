@@ -19,4 +19,5 @@ func SetBases(base string) {
 	vastBase = base
 	cboeOptionsBase = base + "/options"
 	finraBase = base
+	fxBase = base
 }

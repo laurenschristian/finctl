@@ -88,6 +88,8 @@ func Root() *cobra.Command {
 		lensCmd(),
 		portCmd(),
 		watchlistCmd(),
+		voicesCmd(),
+		voiceCmd(),
 		cacheCmd(),
 		keysCmd(),
 		doctorCmd(),

@@ -181,7 +181,22 @@ func mcpServer() *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, rawOut, error) {
 			return wrap(watchRows(ctx))
 		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_voices", Description: "Curated market-voice profiles from X (fxtwitter). Omit handles for the whitelist."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in voicesArg) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.Voices(ctx, hx, in.Handles), nil)
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_voice_read", Description: "Hydrate a single tweet to text via fxtwitter. ref is a tweet URL or handle/id."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in refArg) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.VoiceRead(ctx, hx, in.Ref))
+		})
 	return s
+}
+
+type voicesArg struct {
+	Handles []string `json:"handles,omitempty"`
+}
+type refArg struct {
+	Ref string `json:"ref"`
 }
 
 type idsArg struct {
