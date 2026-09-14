@@ -1,6 +1,6 @@
 # finctl PRD 04: Supply-chain edge commands
 
-Status: draft, 2026-09-14. Depends on PRD 00, PRD 01. Providers: edgar (capex), twse, siliconanalysts, vastai. These are the differentiated, high-signal reads the Serenity thesis keys off; none of them are in a normal terminal.
+Status: SHIPPED v0.4.0 (2026-09-14), partial. Delivered: tw-revenue (TWSE OpenAPI t187ap05_L, default AI-server ODM basket, NT$ thousands x1000, ROC month converted), gpu-rent (vast.ai on-demand offers, per-GPU normalized, low+median, --trend stores low-ask to the history table). capex already shipped (v0.1). DEFERRED: silicon (SiliconAnalysts endpoint returned http=000 / unreachable at build time, 2026-09-14; revisit from NAS). 2 MCP tools added (fin_tw_revenue, fin_gpu_rent). Depends on PRD 00, PRD 01. Providers: edgar (capex), twse, siliconanalysts, vastai. These are the differentiated, high-signal reads the Serenity thesis keys off; none of them are in a normal terminal.
 
 ## Purpose
 

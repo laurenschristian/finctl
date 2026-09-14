@@ -15,4 +15,6 @@ func SetBases(base string) {
 	cftcBase = base + "/cftc.json"
 	kalshiBase = base
 	fredBase = base
+	twseBase = base
+	vastBase = base
 }

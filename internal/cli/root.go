@@ -77,6 +77,8 @@ func Root() *cobra.Command {
 		fiscalCmd(),
 		energyCmd(),
 		macroCmd(),
+		twRevenueCmd(),
+		gpuRentCmd(),
 		cacheCmd(),
 		keysCmd(),
 		doctorCmd(),

@@ -132,7 +132,34 @@ func mcpServer() *mcp.Server {
 			}
 			return wrap(out, nil)
 		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_tw_revenue", Description: "TWSE monthly revenue with MoM/YoY. ids e.g. 2330 (TSMC); omit for the AI-server ODM basket."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in idsArg) (*mcp.CallToolResult, rawOut, error) {
+			return wrap(provider.TWRevenue(ctx, hx, in.IDs))
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "fin_gpu_rent", Description: "Lowest ask and median $/GPU-hour on vast.ai. gpus e.g. \"H100 SXM\"; omit for H100 SXM + B200."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in gpusArg) (*mcp.CallToolResult, rawOut, error) {
+			gpus := in.GPUs
+			if len(gpus) == 0 {
+				gpus = provider.GPUDefaults
+			}
+			var out []any
+			for _, g := range gpus {
+				r, err := provider.GPURent(ctx, hx, g)
+				if err != nil {
+					return nil, rawOut{}, err
+				}
+				out = append(out, r)
+			}
+			return wrap(out, nil)
+		})
 	return s
+}
+
+type idsArg struct {
+	IDs []string `json:"ids,omitempty"`
+}
+type gpusArg struct {
+	GPUs []string `json:"gpus,omitempty"`
 }
 
 type cotArg struct {

@@ -24,6 +24,9 @@ finctl energy                    # WTI, Brent, natural gas, gasoline (Yahoo)
 finctl fiscal                    # US debt to the penny (Treasury FiscalData)
 finctl series DGS10 --n 6        # any FRED series (needs FINCTL_FRED_KEY)
 
+finctl tw-revenue                # TWSE monthly revenue, AI-server ODM basket (MoM/YoY)
+finctl gpu-rent --trend          # vast.ai H100/B200 $/hr low + median, stored over time
+
 finctl cache clear               # drop the on-disk cache
 finctl doctor                    # config, cache, provider reachability
 finctl mcp                       # MCP server over stdio
@@ -64,7 +67,7 @@ Provider keys are optional and off the keyless path; set them later with `FINCTL
 claude mcp add fin -- finctl mcp
 ```
 
-Twelve tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `fin_fx`, `fin_rates`, `fin_fedodds`, `fin_cot`, `fin_series`, `fin_fiscal`, `fin_energy`. Any stdio MCP client (Cursor, Claude Desktop, Zed) works the same: command `finctl`, args `["mcp"]`.
+Fourteen tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `fin_fx`, `fin_rates`, `fin_fedodds`, `fin_cot`, `fin_series`, `fin_fiscal`, `fin_energy`, `fin_tw_revenue`, `fin_gpu_rent`. Any stdio MCP client (Cursor, Claude Desktop, Zed) works the same: command `finctl`, args `["mcp"]`.
 
 ## Data sources
 
@@ -77,6 +80,8 @@ Twelve tools: `fin_quote`, `fin_chart`, `fin_fund`, `fin_capex`, `fin_crypto`, `
 - Positioning: CFTC Commitments of Traders (Socrata)
 - Fiscal: Treasury FiscalData (debt to the penny)
 - Macro series: FRED (free key via `FINCTL_FRED_KEY`)
+- Taiwan ODM revenue: TWSE OpenAPI monthly revenue
+- GPU rental spot: vast.ai on-demand offers
 
 Responses are cached on disk (pure-Go SQLite) with per-provider TTLs and rate limits. See [docs/data-sources.md](docs/data-sources.md) for the full catalog and [PLAN.md](PLAN.md) for the roadmap (macro, filings, portfolio, research).
 
