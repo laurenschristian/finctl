@@ -43,3 +43,34 @@ func TestParseEmpty(t *testing.T) {
 		t.Fatalf("want nil, got %+v", got)
 	}
 }
+
+func TestParseWatchlistMultiTable(t *testing.T) {
+	// A real note has several tables: a buy-zone table, a verdict log (no zone
+	// column), and a trade plan (Qty/Limit). Only the zone table is a source,
+	// and header words like "Ticker"/"Date" must never leak in as rows.
+	md := "" +
+		"| Ticker | Live | Recorded zone | Status |\n|---|---|---|---|\n" +
+		"| **[[FLNC - Fluence\\|FLNC]]** | $14 | $20-24 | below |\n" +
+		"| CAMT | $146 | 130-140 | above |\n\n" +
+		"Some prose.\n\n" +
+		"| Ticker | Live | Verdict | Why |\n|---|---|---|---|\n" +
+		"| ETN | $398 | REJECTED | crowded |\n\n" +
+		"| Ticker | Qty | Limit | Thesis |\n|---|---|---|---|\n" +
+		"| LITE | 1 | $865 | pair trade |\n"
+	got := ParseWatchlist(md)
+	if len(got) != 2 {
+		t.Fatalf("want 2 zone rows, got %d: %+v", len(got), got)
+	}
+	if got[0].Ticker != "FLNC" || got[0].BuyLow != 20 || got[0].BuyHigh != 24 {
+		t.Fatalf("flnc %+v", got[0])
+	}
+	if got[1].Ticker != "CAMT" || got[1].BuyLow != 130 || got[1].BuyHigh != 140 {
+		t.Fatalf("camt %+v", got[1])
+	}
+	for _, w := range got {
+		switch w.Ticker {
+		case "TICKER", "DATE", "ETN", "LITE":
+			t.Fatalf("leaked non-zone row: %s", w.Ticker)
+		}
+	}
+}

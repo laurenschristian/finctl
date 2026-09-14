@@ -55,12 +55,16 @@ func watchRows(ctx context.Context) ([]model.WatchRow, error) {
 		}
 		if q != nil {
 			r.Last = q.Last
-			if it.BuyHigh > 0 {
-				if r.Last <= it.BuyHigh {
-					r.InZone = true
-				} else {
-					r.DistanceToBuyPct = (r.Last - it.BuyHigh) / it.BuyHigh * 100
-				}
+			switch {
+			case it.BuyHigh <= 0:
+				// single-point or missing zone: nothing to compare against
+			case it.BuyLow > 0 && r.Last < it.BuyLow:
+				r.BelowZone = true
+				r.DistanceToBuyPct = (r.Last - it.BuyLow) / it.BuyLow * 100
+			case r.Last <= it.BuyHigh:
+				r.InZone = true
+			default:
+				r.DistanceToBuyPct = (r.Last - it.BuyHigh) / it.BuyHigh * 100
 			}
 		}
 		rows = append(rows, r)
@@ -137,6 +141,8 @@ func watchlistCmd() *cobra.Command {
 					switch {
 					case r.InZone:
 						tobuy = "in zone"
+					case r.BelowZone:
+						tobuy = fmt.Sprintf("%.1f%% below", r.DistanceToBuyPct)
 					case r.BuyHigh > 0:
 						tobuy = fmt.Sprintf("+%.1f%%", r.DistanceToBuyPct)
 					}

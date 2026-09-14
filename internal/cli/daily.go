@@ -54,7 +54,7 @@ func dailyBrief(ctx context.Context) map[string]section {
 	} else {
 		var inRange []model.WatchRow
 		for _, r := range rows {
-			if r.InZone {
+			if r.InZone || r.BelowZone {
 				inRange = append(inRange, r)
 			}
 		}
@@ -117,7 +117,11 @@ func renderDaily(b map[string]section) string {
 			return
 		}
 		for _, r := range rows {
-			fmt.Fprintf(w, "  %s\t%.2f\t(zone %.0f-%.0f)\n", r.Symbol, r.Last, r.BuyLow, r.BuyHigh)
+			tag := "in zone"
+			if r.BelowZone {
+				tag = fmt.Sprintf("%.0f%% below", r.DistanceToBuyPct)
+			}
+			fmt.Fprintf(w, "  %s\t%.2f\t(zone %.0f-%.0f, %s)\n", r.Symbol, r.Last, r.BuyLow, r.BuyHigh, tag)
 		}
 	})
 	line("Earnings this week", b["earnings"], func() {})
