@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/laurenschristian/finctl/internal/httpx"
-	"github.com/laurenschristian/finctl/internal/model"
+	"github.com/laurenschristian/finctl/pkg/httpx"
+	"github.com/laurenschristian/finctl/pkg/model"
 )
 
 const fredTTL = 6 * time.Hour

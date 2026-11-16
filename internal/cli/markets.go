@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/laurenschristian/finctl/internal/model"
-	"github.com/laurenschristian/finctl/internal/provider"
+	"github.com/laurenschristian/finctl/pkg/model"
+	"github.com/laurenschristian/finctl/pkg/provider"
 )
 
 func quoteCmd() *cobra.Command {

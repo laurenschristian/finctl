@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/laurenschristian/finctl/internal/provider"
+	"github.com/laurenschristian/finctl/pkg/provider"
 	"github.com/spf13/cobra"
 )
 

@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/laurenschristian/finctl/internal/cache"
-	"github.com/laurenschristian/finctl/internal/httpx"
+	"github.com/laurenschristian/finctl/pkg/httpx"
 )
 
 func register(mux *http.ServeMux) {

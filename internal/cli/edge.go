@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/laurenschristian/finctl/internal/model"
-	"github.com/laurenschristian/finctl/internal/provider"
+	"github.com/laurenschristian/finctl/pkg/model"
+	"github.com/laurenschristian/finctl/pkg/provider"
 	"github.com/spf13/cobra"
 )
 
