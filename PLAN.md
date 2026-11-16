@@ -59,8 +59,8 @@ Ops
 - `cache clear`, `keys` (which providers are configured), `mcp` *.
 
 ## Architecture
-- `internal/provider/<name>`: fred, bls, treasury, edgar (xbrl + full-text + form4 atom), cboe, finra, cftc, finnhub, yahoo (chart only; options need crumb), stocktwits, kalshi, polymarket, coingecko, frankfurter, eia, monarch (via existing MCP? no: Monarch GraphQL with token), ibkr (gateway :5001).
-- `internal/model`: normalized types (Quote, Fundamentals, InsiderTx, ShortInterest, OptionsSummary, MacroPrint, Position).
+- `pkg/provider/<name>`: fred, bls, treasury, edgar (xbrl + full-text + form4 atom), cboe, finra, cftc, finnhub, yahoo (chart only; options need crumb), stocktwits, kalshi, polymarket, coingecko, frankfurter, eia, monarch (via existing MCP? no: Monarch GraphQL with token), ibkr (gateway :5001).
+- `pkg/model`: normalized types (Quote, Fundamentals, InsiderTx, ShortInterest, OptionsSummary, MacroPrint, Position).
 - `internal/cache`: SQLite (modernc, no cgo). TTL per provider. Rate-limit guard per provider.
 - `internal/vault`: read-only parsers for Dashboard targets table + watchlist note + tracker CSV.
 - `internal/lens`: Serenity checklist scoring from model data.

@@ -6,9 +6,9 @@ import (
 	"sort"
 
 	"github.com/laurenschristian/finctl/internal/ibkr"
-	"github.com/laurenschristian/finctl/internal/model"
-	"github.com/laurenschristian/finctl/internal/provider"
 	"github.com/laurenschristian/finctl/internal/vault"
+	"github.com/laurenschristian/finctl/pkg/model"
+	"github.com/laurenschristian/finctl/pkg/provider"
 	"github.com/spf13/cobra"
 )
 

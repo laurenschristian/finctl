@@ -2,7 +2,7 @@
 
 Status: draft, 2026-09-14. Endpoints verified 2026-09-13 (data-sources.md) and re-confirmed 2026-09-14 via Exa where noted. Legend: OK = keyless, KEY = free key, UA = needs a real User-Agent, CF = Cloudflare wall, AUTH = token/crumb.
 
-Each provider is one package `internal/provider/<name>` exposing typed functions that return `internal/model` types. Every call routes through `httpx.Get(ctx, "<name>", url, ttl)`. TTLs below are the cache lifetimes.
+Each provider is one package `pkg/provider/<name>` exposing typed functions that return `pkg/model` types. Every call routes through `httpx.Get(ctx, "<name>", url, ttl)`. TTLs below are the cache lifetimes.
 
 ## Market and quotes
 

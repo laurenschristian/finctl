@@ -15,14 +15,19 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
-
-	"github.com/laurenschristian/finctl/internal/cache"
 )
+
+// Cache stores response bodies per provider. Get reports false when the entry
+// is missing or older than ttl.
+type Cache interface {
+	Get(ctx context.Context, provider, key string, ttl time.Duration) ([]byte, bool)
+	Put(ctx context.Context, provider, key string, body []byte) error
+}
 
 // Client wraps net/http with a cache and per-provider rate limiters.
 type Client struct {
 	HTTP  *http.Client
-	Cache *cache.Store
+	Cache Cache // nil disables caching
 	UA    string
 
 	mu       sync.Mutex
@@ -47,10 +52,10 @@ var providerRate = map[string]rate.Limit{
 
 const defaultRate rate.Limit = 5
 
-func New(store *cache.Store, ua string) *Client {
+func New(c Cache, ua string) *Client {
 	return &Client{
 		HTTP:     &http.Client{Timeout: 30 * time.Second},
-		Cache:    store,
+		Cache:    c,
 		UA:       ua,
 		limiters: map[string]*rate.Limiter{},
 	}

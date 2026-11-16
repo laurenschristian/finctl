@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/laurenschristian/finctl/internal/model"
+	"github.com/laurenschristian/finctl/pkg/model"
 )
 
 // Client talks to the local Client Portal gateway (self-signed TLS on loopback).

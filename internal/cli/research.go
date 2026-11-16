@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/laurenschristian/finctl/internal/provider"
+	"github.com/laurenschristian/finctl/pkg/provider"
 )
 
 func fundCmd() *cobra.Command {

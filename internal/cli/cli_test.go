@@ -12,7 +12,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/laurenschristian/finctl/internal/provider"
+	"github.com/laurenschristian/finctl/pkg/provider"
 )
 
 func run(t *testing.T, args ...string) (string, error) {

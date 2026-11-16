@@ -10,8 +10,8 @@ import (
 
 	"github.com/laurenschristian/finctl/internal/cache"
 	"github.com/laurenschristian/finctl/internal/config"
-	"github.com/laurenschristian/finctl/internal/httpx"
 	"github.com/laurenschristian/finctl/internal/ibkr"
+	"github.com/laurenschristian/finctl/pkg/httpx"
 )
 
 var (
