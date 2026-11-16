@@ -103,6 +103,19 @@ func InsiderTrades(ctx context.Context, h *httpx.Client, ticker string, n int) (
 	if err != nil {
 		return nil, err
 	}
+	return form4Trades(ctx, h, fs)
+}
+
+// InsiderTradesByCIK is InsiderTrades for a known CIK; it skips the ticker map.
+func InsiderTradesByCIK(ctx context.Context, h *httpx.Client, cik string, n int) ([]model.InsiderTrade, error) {
+	fs, err := InsiderByCIK(ctx, h, cik, n)
+	if err != nil {
+		return nil, err
+	}
+	return form4Trades(ctx, h, fs)
+}
+
+func form4Trades(ctx context.Context, h *httpx.Client, fs []model.Filing) ([]model.InsiderTrade, error) {
 	var out []model.InsiderTrade
 	var lastErr error
 	for _, f := range fs {

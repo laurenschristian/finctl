@@ -18,7 +18,12 @@ import (
 // tickerMap is SEC's company_tickers.json recorded 2026-11-16 (10,404 entries).
 func tickerMap(tb testing.TB) []byte {
 	tb.Helper()
-	f, err := os.Open(filepath.Join("testdata", "company_tickers.json.gz"))
+	return gunzip(tb, filepath.Join("testdata", "company_tickers.json.gz"))
+}
+
+func gunzip(tb testing.TB, path string) []byte {
+	tb.Helper()
+	f, err := os.Open(path)
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -102,6 +107,7 @@ func TestNormalizeCIK(t *testing.T) {
 
 func TestFilingsByCIKSkipsTickerMap(t *testing.T) {
 	var tickerHits int
+	facts := companyFactsMSFT(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/files/company_tickers.json":
@@ -110,6 +116,8 @@ func TestFilingsByCIKSkipsTickerMap(t *testing.T) {
 		case "/submissions/CIK0000320193.json":
 			_, _ = w.Write([]byte(`{"filings":{"recent":{"accessionNumber":["0001-26-1","0001-26-2"],"form":["8-K","4"],
 				"filingDate":["2026-11-10","2026-11-09"],"reportDate":["",""],"primaryDocument":["a.htm","xslF345X05/b.xml"],"primaryDocDescription":["8-K",""]}}}`))
+		case "/api/xbrl/companyfacts/CIK0000789019.json":
+			_, _ = w.Write(facts)
 		default:
 			http.NotFound(w, r)
 		}
@@ -126,6 +134,10 @@ func TestFilingsByCIKSkipsTickerMap(t *testing.T) {
 	ins, err := InsiderByCIK(ctx, h, "CIK0000320193", 5)
 	if err != nil || len(ins) != 1 || ins[0].Form != "4" {
 		t.Fatalf("InsiderByCIK %v %+v", err, ins)
+	}
+	fin, err := FinancialsByCIK(ctx, h, "789019", "msft")
+	if err != nil || fin.Symbol != "MSFT" || len(fin.Quarters) != financialsKeep || fin.TTM == nil || fin.TTM.Revenue <= 0 {
+		t.Fatalf("FinancialsByCIK %v %+v", err, fin)
 	}
 	if tickerHits != 0 {
 		t.Fatalf("ByCIK fetched the ticker map %d times", tickerHits)
@@ -160,4 +172,71 @@ func BenchmarkCIKLookup(b *testing.B) {
 			}
 		})
 	}
+}
+
+func companyFactsMSFT(tb testing.TB) []byte {
+	tb.Helper()
+	return gunzip(tb, filepath.Join("testdata", "companyfacts_msft.json.gz"))
+}
+
+// oldFacts is the pre-selective parse: every concept unmarshalled and indexed.
+func oldFacts(b []byte) map[string][]factRow {
+	var raw struct {
+		Facts map[string]map[string]factUnits `json:"facts"`
+	}
+	if json.Unmarshal(b, &raw) != nil {
+		return nil
+	}
+	out := map[string][]factRow{}
+	for _, tags := range raw.Facts {
+		for tag, f := range tags {
+			for _, arr := range f.Units {
+				for _, e := range arr {
+					out[tag] = append(out[tag], factRow{Start: e.Start, End: e.End, FP: e.FP, Form: e.Form, Filed: e.Filed, FY: e.FY, Val: e.Val})
+				}
+			}
+		}
+	}
+	return out
+}
+
+func TestParseFactsMatchesFullParse(t *testing.T) {
+	b := companyFactsMSFT(t)
+	full := oldFacts(b)
+	tags := financialsTags()
+	got, err := parseFacts(b, tags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slow, err := parseAllFacts(b, map[string]bool{"Revenues": true})
+	if err != nil || len(slow["Revenues"]) != len(full["Revenues"]) {
+		t.Fatalf("fallback %v %d vs %d", err, len(slow["Revenues"]), len(full["Revenues"]))
+	}
+	var n int
+	for _, tag := range tags {
+		if len(got[tag]) != len(full[tag]) {
+			t.Fatalf("%s: %d rows, full parse %d", tag, len(got[tag]), len(full[tag]))
+		}
+		n += len(got[tag])
+	}
+	if n == 0 || len(got) >= len(full) {
+		t.Fatalf("selective parse kept %d tags (%d rows) of %d", len(got), n, len(full))
+	}
+}
+
+func BenchmarkCompanyFacts(b *testing.B) {
+	data := companyFactsMSFT(b)
+	tags := financialsTags()
+	b.Run("old/full", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_ = oldFacts(data)
+		}
+	})
+	b.Run("new/financials", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_, _ = parseFacts(data, tags)
+		}
+	})
 }

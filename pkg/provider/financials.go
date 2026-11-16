@@ -105,15 +105,31 @@ func discrete(facts map[string][]factRow, tags []string) map[string]float64 {
 // Financials returns quarterly revenue, margins, EPS, cash flow and share count from
 // SEC XBRL companyfacts, plus a trailing-twelve-month roll-up when four quarters line up.
 func Financials(ctx context.Context, h *httpx.Client, ticker string) (*model.Financials, error) {
-	cik, err := CIKFor(ctx, h, ticker)
+	cik, err := LookupCIK(ctx, h, ticker)
 	if err != nil {
 		return nil, err
 	}
-	facts, err := companyFacts(ctx, h, cik)
+	return FinancialsByCIK(ctx, h, cik, ticker)
+}
+
+var finRevenueTags = concat(revenueTags, []string{"RevenueFromContractWithCustomerIncludingAssessedTax"})
+
+func financialsTags() []string {
+	return concat(finRevenueTags, grossTags, costTags, opIncTags, netIncTags, epsTags, ocfTags, capexTags,
+		sharesTags, []string{"EntityCommonStockSharesOutstanding"})
+}
+
+// FinancialsByCIK is Financials for a known CIK; symbol only labels the result.
+func FinancialsByCIK(ctx context.Context, h *httpx.Client, cik, symbol string) (*model.Financials, error) {
+	cik, err := NormalizeCIK(cik)
 	if err != nil {
 		return nil, err
 	}
-	rev := discrete(facts, append(revenueTags, "RevenueFromContractWithCustomerIncludingAssessedTax"))
+	facts, err := companyFacts(ctx, h, cik, financialsTags())
+	if err != nil {
+		return nil, err
+	}
+	rev := discrete(facts, finRevenueTags)
 	gross := discrete(facts, grossTags)
 	cost := discrete(facts, costTags)
 	opInc := discrete(facts, opIncTags)
@@ -134,7 +150,7 @@ func Financials(ctx context.Context, h *httpx.Client, ticker string) (*model.Fin
 	if len(ends) > financialsKeep {
 		ends = ends[len(ends)-financialsKeep:]
 	}
-	out := &model.Financials{Symbol: strings.ToUpper(ticker), CIK: cik}
+	out := &model.Financials{Symbol: strings.ToUpper(symbol), CIK: cik}
 	for _, end := range ends {
 		p := model.FinPeriod{Label: cyLabel(end), End: end, Revenue: rev[end], OperatingIncome: opInc[end],
 			NetIncome: net[end], EPS: eps[end], OCF: ocf[end], Capex: capex[end]}
