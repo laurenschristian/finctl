@@ -1,10 +1,13 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,26 +46,83 @@ var revenueTags = []string{
 }
 var sharesTags = []string{"CommonStockSharesOutstanding"}
 
-// CIKFor resolves a ticker to a zero-padded 10-digit CIK using SEC's ticker map.
+// CIKFor resolves a ticker to a zero-padded 10-digit CIK. Kept for callers of the
+// original API; it is LookupCIK.
 func CIKFor(ctx context.Context, h *httpx.Client, ticker string) (string, error) {
+	return LookupCIK(ctx, h, ticker)
+}
+
+// LookupCIK resolves a ticker to "CIK" plus a zero-padded 10-digit CIK. It
+// locates the one matching entry in SEC's ticker map instead of decoding all
+// ~10k entries, which matters on CPU-capped runtimes like Workers.
+func LookupCIK(ctx context.Context, h *httpx.Client, ticker string) (string, error) {
 	b, err := h.Get(ctx, "edgar", edgarWWW+"/files/company_tickers.json", edgarTickerTTL)
 	if err != nil {
 		return "", edgarErr(err)
 	}
-	var raw map[string]struct {
-		CIK    int    `json:"cik_str"`
-		Ticker string `json:"ticker"`
-	}
-	if err := json.Unmarshal(b, &raw); err != nil {
+	cik, err := cikFromTickerMap(b, ticker)
+	if err != nil {
 		return "", err
 	}
-	up := strings.ToUpper(ticker)
-	for _, e := range raw {
-		if strings.ToUpper(e.Ticker) == up {
-			return fmt.Sprintf("CIK%010d", e.CIK), nil
+	return FormatCIK(cik), nil
+}
+
+type tickerEntry struct {
+	CIK    int    `json:"cik_str"`
+	Ticker string `json:"ticker"`
+}
+
+func cikFromTickerMap(b []byte, ticker string) (int, error) {
+	up := strings.ToUpper(strings.TrimSpace(ticker))
+	// SEC serves compact JSON with uppercase tickers, so a byte search finds the
+	// entry without tokenizing the ~800 KB map; anything else falls back to streaming.
+	if i := bytes.Index(b, []byte(`"ticker":"`+up+`"`)); i >= 0 {
+		if start := bytes.LastIndexByte(b[:i], '{'); start >= 0 {
+			var e tickerEntry
+			if json.NewDecoder(bytes.NewReader(b[start:])).Decode(&e) == nil && strings.EqualFold(e.Ticker, up) && e.CIK > 0 {
+				return e.CIK, nil
+			}
+		}
+	} else if bytes.Contains(b, []byte(`"ticker":"`)) {
+		return 0, fmt.Errorf("unknown ticker %q (not in SEC ticker map)", ticker)
+	}
+	return streamTickerMap(b, up, ticker)
+}
+
+// streamTickerMap decodes one entry at a time and stops at the match.
+func streamTickerMap(b []byte, up, ticker string) (int, error) {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	if t, err := dec.Token(); err != nil || t != json.Delim('{') {
+		return 0, fmt.Errorf("SEC ticker map: unexpected shape")
+	}
+	var e tickerEntry
+	for dec.More() {
+		if _, err := dec.Token(); err != nil {
+			return 0, fmt.Errorf("SEC ticker map: %w", err)
+		}
+		e = tickerEntry{}
+		if err := dec.Decode(&e); err != nil {
+			return 0, fmt.Errorf("SEC ticker map: %w", err)
+		}
+		if strings.EqualFold(e.Ticker, up) {
+			return e.CIK, nil
 		}
 	}
-	return "", fmt.Errorf("unknown ticker %q (not in SEC ticker map)", ticker)
+	return 0, fmt.Errorf("unknown ticker %q (not in SEC ticker map)", ticker)
+}
+
+// FormatCIK renders a numeric CIK the way EDGAR URLs want it: CIK0000320193.
+func FormatCIK(cik int) string { return fmt.Sprintf("CIK%010d", cik) }
+
+// NormalizeCIK accepts "320193", "0000320193" or "CIK0000320193" and returns the
+// canonical CIK0000320193 form.
+func NormalizeCIK(cik string) (string, error) {
+	s := strings.TrimPrefix(strings.ToUpper(strings.TrimSpace(cik)), "CIK")
+	n, err := strconv.Atoi(s)
+	if err != nil || n <= 0 || len(s) > 10 {
+		return "", fmt.Errorf("invalid CIK %q", cik)
+	}
+	return FormatCIK(n), nil
 }
 
 type factPoint struct {
@@ -154,27 +214,98 @@ type factRow struct {
 	Val                         float64
 }
 
-// companyFacts fetches every fact for a CIK in one call and indexes it by
-// us-gaap tag. Unlike frames, companyfacts includes off-calendar fiscal-year
-// filers (NVDA, AAPL), so fund works for them too.
-func companyFacts(ctx context.Context, h *httpx.Client, cik string) (map[string][]factRow, error) {
+type factUnits struct {
+	Units map[string][]struct {
+		Start string  `json:"start"`
+		End   string  `json:"end"`
+		Val   float64 `json:"val"`
+		FY    int     `json:"fy"`
+		FP    string  `json:"fp"`
+		Form  string  `json:"form"`
+		Filed string  `json:"filed"`
+	} `json:"units"`
+}
+
+func (f factUnits) appendTo(out map[string][]factRow, tag string) {
+	n := len(out[tag])
+	for _, arr := range f.Units {
+		n += len(arr)
+	}
+	out[tag] = slices.Grow(out[tag], n-len(out[tag]))
+	for _, arr := range f.Units { // USD, shares
+		for _, e := range arr {
+			out[tag] = append(out[tag], factRow{
+				Start: e.Start, End: e.End, FP: e.FP, Form: e.Form,
+				Filed: e.Filed, FY: e.FY, Val: e.Val,
+			})
+		}
+	}
+}
+
+// companyFacts fetches every fact for a CIK in one call and indexes the wanted
+// tags. Unlike frames, companyfacts includes off-calendar fiscal-year filers
+// (NVDA, AAPL), so fund works for them too.
+func companyFacts(ctx context.Context, h *httpx.Client, cik string, tags []string) (map[string][]factRow, error) {
 	u := fmt.Sprintf("%s/api/xbrl/companyfacts/%s.json", edgarData, cik)
 	b, err := h.Get(ctx, "edgar", u, edgarFactsTTL)
 	if err != nil {
 		return nil, edgarErr(err)
 	}
+	return parseFacts(b, tags)
+}
+
+// factKey marks each concept object in SEC's compact companyfacts JSON.
+var factKey = []byte(`":{"label":`)
+
+// parseFacts decodes only the wanted tags. Large caps carry 500+ concepts in
+// 4-5 MB, so it locates each concept by byte search and skips the rest.
+func parseFacts(b []byte, tags []string) (map[string][]factRow, error) {
+	want := make(map[string]bool, len(tags))
+	for _, t := range tags {
+		want[t] = true
+	}
+	var keys []int // index of each concept key's opening quote, then its factKey
+	for off := 0; ; {
+		i := bytes.Index(b[off:], factKey)
+		if i < 0 {
+			break
+		}
+		i += off
+		off = i + len(factKey)
+		if q := bytes.LastIndexByte(b[:i], '"'); q >= 0 {
+			keys = append(keys, q, i)
+		}
+	}
+	if len(keys) == 0 {
+		return parseAllFacts(b, want)
+	}
+	out := map[string][]factRow{}
+	for k := 0; k < len(keys); k += 2 {
+		q, i := keys[k], keys[k+1]
+		tag := string(b[q+1 : i])
+		if !want[tag] {
+			continue
+		}
+		var f factUnits
+		obj := b[i+2:]
+		// Mid-taxonomy concepts end right before `,"NextKey"`, so Unmarshal gets an
+		// exact slice; the last concept of a taxonomy goes through a Decoder.
+		if k+2 < len(keys) && b[keys[k+2]-1] == ',' {
+			if err := json.Unmarshal(obj[:keys[k+2]-1-(i+2)], &f); err != nil {
+				return nil, err
+			}
+		} else if err := json.NewDecoder(bytes.NewReader(obj)).Decode(&f); err != nil {
+			return nil, err
+		}
+		f.appendTo(out, tag)
+	}
+	return out, nil
+}
+
+// parseAllFacts is the full-unmarshal fallback for non-compact JSON.
+func parseAllFacts(b []byte, want map[string]bool) (map[string][]factRow, error) {
 	var raw struct {
-		Facts map[string]map[string]struct {
-			Units map[string][]struct {
-				Start string  `json:"start"`
-				End   string  `json:"end"`
-				Val   float64 `json:"val"`
-				FY    int     `json:"fy"`
-				FP    string  `json:"fp"`
-				Form  string  `json:"form"`
-				Filed string  `json:"filed"`
-			} `json:"units"`
-		} `json:"facts"`
+		Facts map[string]map[string]factUnits `json:"facts"`
 	}
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return nil, err
@@ -182,13 +313,8 @@ func companyFacts(ctx context.Context, h *httpx.Client, cik string) (map[string]
 	out := map[string][]factRow{}
 	for _, tags := range raw.Facts { // us-gaap, dei
 		for tag, fact := range tags {
-			for _, arr := range fact.Units { // USD, shares
-				for _, e := range arr {
-					out[tag] = append(out[tag], factRow{
-						Start: e.Start, End: e.End, FP: e.FP, Form: e.Form,
-						Filed: e.Filed, FY: e.FY, Val: e.Val,
-					})
-				}
+			if want[tag] {
+				fact.appendTo(out, tag)
 			}
 		}
 	}
@@ -302,6 +428,18 @@ func quarterlyFlow(facts map[string][]factRow, tags []string) []factRow {
 	return best
 }
 
+func fundamentalsTags() []string {
+	return concat(revenueTags, capexTags, sharesTags, []string{"EntityCommonStockSharesOutstanding"})
+}
+
+func concat(lists ...[]string) []string {
+	var out []string
+	for _, l := range lists {
+		out = append(out, l...)
+	}
+	return out
+}
+
 // Fundamentals returns the revenue, capex, and shares-outstanding trend for a
 // ticker from SEC XBRL companyfacts (quarterly, deduped by fiscal period).
 func Fundamentals(ctx context.Context, h *httpx.Client, ticker string) (*model.Fundamentals, error) {
@@ -309,7 +447,7 @@ func Fundamentals(ctx context.Context, h *httpx.Client, ticker string) (*model.F
 	if err != nil {
 		return nil, err
 	}
-	facts, err := companyFacts(ctx, h, cik)
+	facts, err := companyFacts(ctx, h, cik, fundamentalsTags())
 	if err != nil {
 		return nil, err
 	}

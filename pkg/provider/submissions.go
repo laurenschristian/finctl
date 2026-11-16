@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -13,10 +14,24 @@ import (
 
 const submissionsTTL = 6 * time.Hour
 
+// ErrNoForm4 means the recent submissions hold no Form 4 or 4/A.
+var ErrNoForm4 = errors.New("no recent Form 4 filings")
+
 // Filings returns recent SEC submissions for a ticker, optionally filtered to a
 // form type (e.g. 8-K, 10-K, 4). limit caps the rows.
 func Filings(ctx context.Context, h *httpx.Client, ticker, form string, limit int) ([]model.Filing, error) {
-	cik, err := CIKFor(ctx, h, ticker)
+	cik, err := LookupCIK(ctx, h, ticker)
+	if err != nil {
+		return nil, err
+	}
+	return FilingsByCIK(ctx, h, cik, form, limit)
+}
+
+// FilingsByCIK is Filings for a known CIK (any of 320193, 0000320193,
+// CIK0000320193). It skips the ticker map, so callers that cache the CIK pay
+// for one submissions fetch only.
+func FilingsByCIK(ctx context.Context, h *httpx.Client, cik, form string, limit int) ([]model.Filing, error) {
+	cik, err := NormalizeCIK(cik)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +85,20 @@ func Filings(ctx context.Context, h *httpx.Client, ticker, form string, limit in
 
 // Insider returns recent Form 4 (and 4/A) insider filings for a ticker.
 func Insider(ctx context.Context, h *httpx.Client, ticker string, limit int) ([]model.Filing, error) {
-	all, err := Filings(ctx, h, ticker, "", 400)
+	cik, err := LookupCIK(ctx, h, ticker)
+	if err != nil {
+		return nil, err
+	}
+	out, err := InsiderByCIK(ctx, h, cik, limit)
+	if errors.Is(err, ErrNoForm4) {
+		return nil, fmt.Errorf("%w for %s", ErrNoForm4, strings.ToUpper(ticker))
+	}
+	return out, err
+}
+
+// InsiderByCIK is Insider for a known CIK; it skips the ticker map.
+func InsiderByCIK(ctx context.Context, h *httpx.Client, cik string, limit int) ([]model.Filing, error) {
+	all, err := FilingsByCIK(ctx, h, cik, "", 400)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +115,7 @@ func Insider(ctx context.Context, h *httpx.Client, ticker string, limit int) ([]
 		}
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("no recent Form 4 filings for %s", strings.ToUpper(ticker))
+		return nil, fmt.Errorf("%w for %s", ErrNoForm4, cik)
 	}
 	return out, nil
 }
