@@ -199,6 +199,58 @@ type DilutionReport struct {
 	Flag        string  `json:"flag,omitempty"`
 }
 
+// FinPeriod is one fiscal quarter (or the trailing twelve months) of reported results.
+type FinPeriod struct {
+	Label           string  `json:"label"`
+	End             string  `json:"end,omitempty"`
+	Revenue         float64 `json:"revenue,omitempty"`
+	GrossProfit     float64 `json:"grossProfit,omitempty"`
+	OperatingIncome float64 `json:"operatingIncome,omitempty"`
+	NetIncome       float64 `json:"netIncome,omitempty"`
+	EPS             float64 `json:"eps,omitempty"`
+	OCF             float64 `json:"ocf,omitempty"`
+	Capex           float64 `json:"capex,omitempty"`
+	FCF             float64 `json:"fcf,omitempty"`
+	Shares          float64 `json:"shares,omitempty"`
+}
+
+func margin(v, rev float64) float64 {
+	if rev == 0 {
+		return 0
+	}
+	return v / rev
+}
+
+// GrossMargin, OpMargin and NetMargin are fractions of revenue (0.5 = 50%).
+func (p FinPeriod) GrossMargin() float64 { return margin(p.GrossProfit, p.Revenue) }
+func (p FinPeriod) OpMargin() float64    { return margin(p.OperatingIncome, p.Revenue) }
+func (p FinPeriod) NetMargin() float64   { return margin(p.NetIncome, p.Revenue) }
+
+// Financials is a quarterly income and cash-flow history from SEC XBRL, oldest first.
+type Financials struct {
+	Symbol   string      `json:"symbol"`
+	CIK      string      `json:"cik,omitempty"`
+	Quarters []FinPeriod `json:"quarters"`
+	TTM      *FinPeriod  `json:"ttm,omitempty"`
+}
+
+// InsiderTrade is the sum of one owner's Form 4 non-derivative rows with one transaction code.
+// Codes: P open-market buy, S open-market sale, A award, M exercise, F tax withholding, G gift.
+type InsiderTrade struct {
+	Filed  string  `json:"filed"`
+	Date   string  `json:"date,omitempty"`
+	Owner  string  `json:"owner"`
+	Role   string  `json:"role,omitempty"`
+	Code   string  `json:"code"`
+	Shares float64 `json:"shares"`
+	Price  float64 `json:"price,omitempty"`
+	Value  float64 `json:"value,omitempty"`
+	URL    string  `json:"url,omitempty"`
+}
+
+// Buy reports an open-market purchase, the one insider signal worth highlighting.
+func (t InsiderTrade) Buy() bool { return t.Code == "P" }
+
 // Position is one holding, optionally with vault target weight and drift.
 type Position struct {
 	Symbol       string  `json:"symbol"`

@@ -2,9 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/laurenschristian/finctl/pkg/model"
 	"github.com/laurenschristian/finctl/pkg/provider"
+	"github.com/laurenschristian/finctl/pkg/research"
 	"github.com/spf13/cobra"
 )
 
@@ -210,33 +213,22 @@ func lensCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			t := args[0]
-			lens := map[string]any{"symbol": t}
-			if d, err := provider.Dilution(ctx, hx, t); err == nil {
-				lens["dilution"] = d
+			d := &research.Dossier{Symbol: strings.ToUpper(args[0])}
+			if q, err := provider.CboeQuote(ctx, hx, d.Symbol); err == nil && q != nil {
+				d.Price = q.Last
 			}
-			if si, err := provider.ShortInterest(ctx, hx, t); err == nil {
-				lens["short"] = si
-			}
-			if op, err := provider.OptionsChain(ctx, hx, t); err == nil {
-				lens["options"] = op
-			}
-			return show(lens, func() string {
+			research.Fill(ctx, hx, d, research.LensSections...)
+			items := research.Lens(d, time.Now())
+			return show(map[string]any{"symbol": d.Symbol, "items": items, "errors": d.Errors}, func() string {
 				b, w := newTab()
-				fmt.Fprintf(w, "Serenity lens: %s\n", t)
-				if d, ok := lens["dilution"].(*model.DilutionReport); ok {
-					fmt.Fprintf(w, "[auto] dilution\t%s (%s YoY)\n", d.Flag, pctStr(d.ChangePctYr))
+				fmt.Fprintf(w, "Serenity lens: %s\n", d.Symbol)
+				for _, it := range items {
+					kind := "manual"
+					if it.Auto {
+						kind = "auto"
+					}
+					fmt.Fprintf(w, "[%s] %s\t%s\t%s\n", kind, it.Question, it.Status, it.Evidence)
 				}
-				if si, ok := lens["short"].(*model.ShortInterest); ok {
-					fmt.Fprintf(w, "[auto] short / days-to-cover\t%s / %.1f\n", abbr(si.Current), si.DaysToCover)
-				}
-				if op, ok := lens["options"].(*model.OptionsSummary); ok {
-					fmt.Fprintf(w, "[auto] 30d IV / put-call\t%.1f%% / %.2f\n", op.FrontIV, op.PutCallRatio)
-				}
-				fmt.Fprintln(w, "[manual] moat and switching costs")
-				fmt.Fprintln(w, "[manual] customer concentration (read the 10-K risk factors)")
-				fmt.Fprintln(w, "[manual] GAAP vs non-GAAP quality")
-				fmt.Fprintln(w, "[manual] insider alignment and recent selling")
 				_ = w.Flush()
 				return b.String()
 			})
